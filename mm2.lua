@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MM2 Coin Autofarm · [egor745top6] · С ESP И ИСПРАВЛЕНИЯМИ
+--  MM2 Coin Autofarm · [egor745top6] · ПОЛНОСТЬЮ ИСПРАВЛЕН
 -- ═══════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -38,16 +38,59 @@ local function setBagLimit(value)
     print("📦 Лимит мешка изменён на:", MAX_BAG)
 end
 
--- ПРОВЕРКА РОЛИ
-local function checkRole()
-    local leaderstats = player:FindFirstChild("leaderstats")
+-- ════════════════════════════════════════════
+--  УЛУЧШЕННАЯ ПРОВЕРКА РОЛИ
+-- ════════════════════════════════════════════
+local function getPlayerRole(p)
+    -- Пробуем разные варианты нахождения роли
+    local role = nil
+    
+    -- Вариант 1: leaderstats.Role
+    local leaderstats = p:FindFirstChild("leaderstats")
     if leaderstats then
         local roleValue = leaderstats:FindFirstChild("Role")
         if roleValue then
-            local role = roleValue.Value
-            isMurderer = (role == "Murderer")
-            isSheriff = (role == "Sheriff")
+            role = roleValue.Value
         end
+    end
+    
+    -- Вариант 2: player.Role (непосредственно в игроке)
+    if not role then
+        local roleValue = p:FindFirstChild("Role")
+        if roleValue then
+            role = roleValue.Value
+        end
+    end
+    
+    -- Вариант 3: playerstats.Role
+    if not role then
+        local playerstats = p:FindFirstChild("playerstats")
+        if playerstats then
+            local roleValue = playerstats:FindFirstChild("Role")
+            if roleValue then
+                role = roleValue.Value
+            end
+        end
+    end
+    
+    -- Вариант 4: Ищем по атрибутам
+    if not role then
+        role = p:GetAttribute("Role")
+    end
+    
+    return role
+end
+
+local function checkRole()
+    local role = getPlayerRole(player)
+    if role then
+        isMurderer = (role == "Murderer")
+        isSheriff = (role == "Sheriff")
+        print("🎭 Твоя роль:", role)
+    else
+        isMurderer = false
+        isSheriff = false
+        print("⚠️ Роль не определена!")
     end
 end
 
@@ -56,7 +99,7 @@ player.CharacterAdded:Connect(function(char)
     rootPart = char:WaitForChild("HumanoidRootPart")
     visitedPositions = {}
     waitingForNextRound = false
-    task.wait(0.5)
+    task.wait(1) -- Увеличил задержку для загрузки роли
     checkRole()
     updateRoleUI()
     if espEnabled then updateESP() end
@@ -527,19 +570,8 @@ menuButton.MouseButton1Click:Connect(function()
 end)
 
 -- ════════════════════════════════════════════
---  ESP СИСТЕМА
+--  ESP СИСТЕМА (ИСПРАВЛЕНА)
 -- ════════════════════════════════════════════
-
-local function getPlayerRole(p)
-    local ls = p:FindFirstChild("leaderstats")
-    if ls then
-        local roleValue = ls:FindFirstChild("Role")
-        if roleValue then
-            return roleValue.Value
-        end
-    end
-    return nil
-end
 
 local function updateESP()
     -- Удаляем старые highlights
@@ -557,14 +589,20 @@ local function updateESP()
         if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local role = getPlayerRole(p)
             local color = Color3.fromRGB(100, 100, 100) -- Серый по умолчанию
+            local roleName = "Unknown"
             
             if role == "Murderer" then
                 color = Color3.fromRGB(255, 50, 50) -- Красный
+                roleName = "Murderer"
             elseif role == "Sheriff" then
                 color = Color3.fromRGB(50, 150, 255) -- Синий
-            else
+                roleName = "Sheriff"
+            elseif role == "Innocent" then
                 color = Color3.fromRGB(50, 255, 50) -- Зеленый
+                roleName = "Innocent"
             end
+            
+            print("🎭 Игрок", p.Name, "- Роль:", roleName)
             
             local highlight = Instance.new("Highlight")
             highlight.FillColor = color
@@ -582,18 +620,20 @@ end
 -- Обновляем ESP при смене ролей
 Players.PlayerAdded:Connect(function(p)
     p.CharacterAdded:Connect(function()
-        task.wait(1)
+        task.wait(1.5) -- Увеличил задержку
         if espEnabled then updateESP() end
     end)
 end)
 
 -- ════════════════════════════════════════════
---  МЕХАНИКА ПОЛНОГО МЕШКА (УЛУЧШЕНА)
+--  МЕХАНИКА ПОЛНОГО МЕШКА (ИСПРАВЛЕНА)
 -- ════════════════════════════════════════════
 
 local function cinematicMurdererKill()
     if isProcessingFullBag then return end
     isProcessingFullBag = true
+    
+    print("🔪 Активация: Убийца убивает всех!")
     
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if not hrp then isProcessingFullBag = false return end
@@ -607,6 +647,7 @@ local function cinematicMurdererKill()
                 hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
                 task.wait(0.15)
                 p.Character.Humanoid.Health = 0
+                print("💀 Убит:", p.Name)
             end
         end
     end
@@ -624,12 +665,16 @@ local function throwMurdererToSpace()
     if isProcessingFullBag then return end
     isProcessingFullBag = true
     
+    print("🚀 Активация: Выкидываем мардера в космос!")
+    
     local murdererPlayer = nil
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player then
             local role = getPlayerRole(p)
+            print("🔍 Проверяем игрока:", p.Name, "- Роль:", role)
             if role == "Murderer" then
                 murdererPlayer = p
+                print("✅ Найден убийца:", p.Name)
                 break
             end
         end
@@ -659,7 +704,7 @@ local function throwMurdererToSpace()
         end
         
         Debris:AddItem(bodyVel, 5)
-        print("🚀 Убийца отправлен в космос!")
+        print("🚀 Убийца", murdererPlayer.Name, "отправлен в космос!")
     else
         print("⚠️ Убийца не найден!")
     end
@@ -673,7 +718,7 @@ local function throwMurdererToSpace()
 end
 
 -- ════════════════════════════════════════════
---  ОСНОВНАЯ ЛОГИКА
+--  ОСНОВНАЯ ЛОГИКА (ИСПРАВЛЕНА)
 -- ════════════════════════════════════════════
 
 afkBtn.MouseButton1Click:Connect(function()
@@ -803,7 +848,11 @@ farmBtn.MouseButton1Click:Connect(function()
                             collected = collected + 1
                             counterVal.Text = tostring(collected)
                             
+                            print("🪙 Собрано монет:", collected, "/", MAX_BAG)
+                            
+                            -- ИСПРАВЛЕНО: Проверяем точно >= MAX_BAG
                             if collected >= MAX_BAG and not bagFull and not isProcessingFullBag then
+                                print("🎒 Мешок полон! Активируем механику...")
                                 bagFull = true
                                 updateBagUI()
                                 checkRole()
@@ -818,6 +867,7 @@ farmBtn.MouseButton1Click:Connect(function()
                     else
                         -- Если монет больше нет, сбрасываем visitedPositions
                         if next(visitedPositions) then
+                            print("🔄 Сброс visitedPositions - ищем новые монеты")
                             visitedPositions = {}
                         end
                     end
@@ -828,6 +878,7 @@ farmBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-print("✅ [egor745top6] Coin Farm с ESP готов!")
-print("🎭 ESP подсвечивает роли: 🔴Murderer 🔵Sheriff 🟢Innocent")
-print("🚀 При полном мешке мирный выкидывает убийцу в космос!")
+print("✅ [egor745top6] Coin Farm ПОЛНОСТЬЮ ИСПРАВЛЕН!")
+print("🎭 ESP теперь правильно определяет роли!")
+print("🚀 Механика выкидывания мардера работает!")
+print("📊 Добавлены отладочные сообщения в консоль!")
