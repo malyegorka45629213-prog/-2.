@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MM2 Coin Autofarm · [egor745top6] · ИСПРАВЛЕНИЕ СБОРА
+--  MM2 Coin Autofarm · [egor745top6] · КИНЕМАТОГРАФИЧНЫЕ ЭФФЕКТЫ
 -- ═══════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -344,7 +344,6 @@ local function sectionLabel(order, text)
     l.Parent = body
 end
 
--- СОЗДАЁМ ВСЕ ЭЛЕМЕНТЫ СРАЗУ
 sectionLabel(5, "STATS")
 local counterVal = statRow(6, "Coins Collected")
 local timerVal = statRow(7, "Time Active")
@@ -356,7 +355,6 @@ local roleVal = statRow(10, "Your Role")
 sectionLabel(11, "BAG STATUS")
 local bagVal = statRow(12, "Bag Full")
 
--- ФУНКЦИИ UI
 function updateRoleUI()
     checkRole()
     if isMurderer then
@@ -384,38 +382,94 @@ function updateBagUI()
     end
 end
 
--- МЕХАНИКА ПОЛНОГО МЕШКА
+-- 🔥 КИНЕМАТОГРАФИЧНЫЕ ЭФФЕКТЫ
 function stopFarming()
     farmStopped = true
     updateBagUI()
     print("🛑 ФАРМ ОСТАНОВЛЕН!")
 end
 
+-- 🔥 УБИЙЦА УБИВАЕТ ВСЕХ (КИНЕМАТОГРАФИЧНО)
 function cinematicMurdererKill()
-    print("🔪 Убийца убивает всех!")
+    print("🔪 КИНЕМАТОГРАФИЧНОЕ УБИЙСТВО!")
     killSound:Play()
+    
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-    local originalCFrame = hrp.CFrame
+    
+    -- 🔥 Создаём визуальный нож
+    local knife = Instance.new("Tool")
+    knife.Name = "MurdererKnife"
+    knife.TextureId = "rbxassetid://189130411"
+    knife.GripPos = Vector3.new(0, -0.5, 0)
+    knife.Parent = character
+    
+    -- 🔥 Красная вспышка вокруг
+    local flash = Instance.new("Part")
+    flash.Size = Vector3.new(30, 30, 30)
+    flash.Position = hrp.Position
+    flash.Anchored = true
+    flash.CanCollide = false
+    flash.Material = Enum.Material.Neon
+    flash.Color = Color3.fromRGB(255, 0, 0)
+    flash.Transparency = 0.7
+    flash.Parent = workspace
+    Debris:AddItem(flash, 2)
+    
+    local light = Instance.new("PointLight")
+    light.Brightness = 20
+    light.Range = 50
+    light.Color = Color3.fromRGB(255, 0, 0)
+    light.Parent = flash
+    
+    task.wait(0.5)
+    
+    -- 🔥 Быстрая телепортация к каждому игроку
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
             local targetHrp = p.Character:FindFirstChild("HumanoidRootPart")
             if targetHrp then
+                -- Телепорт за спину
                 hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
-                task.wait(0.15)
+                task.wait(0.1)
+                
+                -- Визуальный эффект удара
+                local hitEffect = Instance.new("Part")
+                hitEffect.Size = Vector3.new(2, 2, 2)
+                hitEffect.Position = targetHrp.Position
+                hitEffect.Anchored = true
+                hitEffect.CanCollide = false
+                hitEffect.Material = Enum.Material.Neon
+                hitEffect.Color = Color3.fromRGB(255, 50, 50)
+                hitEffect.Transparency = 0.3
+                hitEffect.Parent = workspace
+                Debris:AddItem(hitEffect, 0.5)
+                
+                -- Убийство
                 p.Character.Humanoid.Health = 0
+                print("💀 Убит:", p.Name)
             end
         end
     end
-    hrp.CFrame = originalCFrame
+    
+    task.wait(0.5)
+    
+    -- 🔥 Возврат на исходную позицию
+    hrp.CFrame = CFrame.new(hrp.Position)
+    
+    -- 🔥 Удаляем нож
+    knife:Destroy()
+    
     bagFull = false
     collected = 0
     counterVal.Text = "0"
 end
 
+-- 🔥 ВЫБРОС МАРДЕРА В КОСМОС (КИНЕМАТОГРАФИЧНО)
 function throwMurdererToSpace()
-    print("🚀 Ищем мардера...")
+    print("🚀 КИНЕМАТОГРАФИЧНЫЙ ВЫБРОС МАРДЕРА!")
     deathSound:Play()
+    
     local murdererPlayer = nil
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player then
@@ -426,33 +480,82 @@ function throwMurdererToSpace()
             end
         end
     end
+    
     if murdererPlayer and murdererPlayer.Character and murdererPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = murdererPlayer.Character.HumanoidRootPart
+        local myHrp = character:FindFirstChild("HumanoidRootPart")
+        local murdererHrp = murdererPlayer.Character.HumanoidRootPart
+        
+        if not myHrp then return end
+        
+        -- 🔥 Телепортируемся к мардеру
+        myHrp.CFrame = murdererHrp.CFrame * CFrame.new(0, 0, 5)
+        task.wait(0.3)
+        
+        -- 🔥 Начинаем быстро крутиться вокруг мардера
+        local spinCount = 0
+        local spinThread = task.spawn(function()
+            while spinCount < 20 do
+                local angle = math.rad(spinCount * 36)
+                local radius = 5
+                local offset = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+                myHrp.CFrame = CFrame.new(murdererHrp.Position + offset, murdererHrp.Position)
+                spinCount = spinCount + 1
+                task.wait(0.05)
+            end
+        end)
+        
+        -- 🔥 Создаём фиолетовую вспышку
+        local flash = Instance.new("Part")
+        flash.Size = Vector3.new(20, 20, 20)
+        flash.Position = murdererHrp.Position
+        flash.Anchored = true
+        flash.CanCollide = false
+        flash.Material = Enum.Material.Neon
+        flash.Color = Color3.fromRGB(155, 60, 255)
+        flash.Transparency = 0.5
+        flash.Parent = workspace
+        Debris:AddItem(flash, 3)
+        
+        local light = Instance.new("PointLight")
+        light.Brightness = 15
+        light.Range = 40
+        light.Color = Color3.fromRGB(155, 60, 255)
+        light.Parent = flash
+        
+        task.wait(1)
+        
+        -- 🔥 Запускаем мардера в космос
         local bodyVel = Instance.new("BodyVelocity")
-        bodyVel.Velocity = Vector3.new(0, 2000, 0)
+        bodyVel.Velocity = Vector3.new(0, 3000, 0)
         bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bodyVel.Parent = hrp
-        for i = 1, 15 do
+        bodyVel.Parent = murdererHrp
+        
+        -- 🔥 Визуальный эффект полёта
+        for i = 1, 30 do
+            task.wait(0.1)
             local trail = Instance.new("Part")
             trail.Size = Vector3.new(2, 2, 2)
-            trail.Position = hrp.Position + Vector3.new(math.random(-3, 3), math.random(-3, 3), math.random(-3, 3))
+            trail.Position = murdererHrp.Position + Vector3.new(math.random(-3, 3), math.random(-3, 3), math.random(-3, 3))
             trail.Anchored = true
             trail.CanCollide = false
             trail.Material = Enum.Material.Neon
             trail.Color = Color3.fromRGB(155, 60, 255)
             trail.Transparency = 0.3
             trail.Parent = workspace
-            Debris:AddItem(trail, 2)
+            Debris:AddItem(trail, 1)
         end
+        
         Debris:AddItem(bodyVel, 5)
-        print("🚀", murdererPlayer.Name, "улетел!")
+        print("🚀", murdererPlayer.Name, "улетел в космос!")
+    else
+        print("⚠️ Мардер не найден!")
     end
+    
     bagFull = false
     collected = 0
     counterVal.Text = "0"
 end
 
--- 🔥 ИСПРАВЛЕННАЯ ЛОГИКА СБОРА
 function flyTo(pos, speed)
     if not rootPart or farmStopped then return false end
     local distance = (pos - rootPart.Position).Magnitude
@@ -534,12 +637,9 @@ function startFarming()
                 if arrived then
                     task.wait(0.3)
                     
-                    -- 🔥 ПРОВЕРКА: монета всё ещё существует?
                     if closest.Parent and closest:IsDescendantOf(workspace) then
-                        -- Монета существует — проверяем расстояние
                         local distToCoin = (closest.Position - rootPart.Position).Magnitude
                         if distToCoin < 5 then
-                            -- Мы рядом с монетой — значит мы её собрали!
                             collected = collected + 1
                             counterVal.Text = tostring(collected)
                             collectSound:Play()
@@ -565,7 +665,6 @@ function startFarming()
                             print("⚠️ Монета существует, но мы далеко — пропускаем")
                         end
                     else
-                        -- Монета исчезла — значит её собрал кто-то другой
                         print("❌ Монета исчезла (собрал кто-то другой)")
                     end
                 end
@@ -828,5 +927,5 @@ updateRoleUI()
 updateBagUI()
 
 print("✅ [egor745top6] Coin Farm ГОТОВ!")
-print("✅ Теперь засчитывает ТОЛЬКО реально собранные монеты!")
-print("❌ Не засчитывает монеты, собранные другими игроками!")
+print("🔪 Кинематографичное убийство для Murderer!")
+print("🚀 Кинематографичный выброс мардера для Innocent!")
