@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MM2 Coin Autofarm · [egor745top6] · КНОПКИ ИСПРАВЛЕНЫ
+--  MM2 Coin Autofarm · [egor745top6] · КНОПКИ ПОЛНОСТЬЮ ИСПРАВЛЕНЫ
 -- ═══════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -27,14 +27,8 @@ local farmStopped = false
 local espEnabled = false
 local espHighlights = {}
 
--- ════════════════════════════════════════════
---  ЛИМИТ МЕШКА
--- ════════════════════════════════════════════
 local MAX_BAG = 40
 
--- ════════════════════════════════════════════
---  ПРОВЕРКА РОЛИ
--- ════════════════════════════════════════════
 local function getPlayerRole(p)
     if p.Character then
         if p.Character:FindFirstChild("Knife") or p.Character:FindFirstChild("MurdererSword") then
@@ -83,9 +77,6 @@ player.CharacterAdded:Connect(function(char)
     updateRoleUI()
 end)
 
--- ════════════════════════════════════════════
---  ТЕМА
--- ════════════════════════════════════════════
 local COL = {
     bg = Color3.fromRGB(15, 10, 25),
     card = Color3.fromRGB(28, 18, 45),
@@ -124,9 +115,6 @@ do
     if old then old:Destroy() end
 end
 
--- ════════════════════════════════════════════
---  GUI
--- ════════════════════════════════════════════
 local gui = Instance.new("ScreenGui")
 gui.Name = "AutoFarmGui"
 gui.ResetOnSpawn = false
@@ -219,9 +207,9 @@ do
 end
 
 -- ════════════════════════════════════════════
---  UI КОМПОНЕНТЫ (ИСПРАВЛЕНО)
+--  ПОЛНОСТЬЮ ПЕРЕДЕЛАННАЯ ФУНКЦИЯ КНОПКИ
 -- ════════════════════════════════════════════
-local function toggleCard(order, label, callback)
+local function createToggleButton(order, label, initialState, callback)
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, 0, 0, 44)
     card.BackgroundColor3 = COL.card
@@ -257,8 +245,8 @@ local function toggleCard(order, label, callback)
     local pl = Instance.new("TextLabel")
     pl.Size = UDim2.new(1, 0, 1, 0)
     pl.BackgroundTransparency = 1
-    pl.Text = "OFF"
-    pl.TextColor3 = COL.muted
+    pl.Text = initialState and "ON" or "OFF"
+    pl.TextColor3 = initialState and COL.white or COL.muted
     pl.Font = Enum.Font.GothamBold
     pl.TextSize = 11
     pl.ZIndex = 2
@@ -271,15 +259,11 @@ local function toggleCard(order, label, callback)
     btn.ZIndex = 3
     btn.Parent = card
 
-    -- ИСПРАВЛЕНО: Обработчик нажатия внутри функции
-    btn.MouseButton1Click:Connect(function()
-        if callback then
-            callback()
-        end
-    end)
+    local currentState = initialState
 
-    local function setState(on)
-        if on then
+    -- Функция обновления визуала
+    local function updateVisual()
+        if currentState then
             tw(card, {BackgroundColor3 = ACCENT.dim})
             tw(cs, {Color = ACCENT.base})
             tw(pill, {BackgroundColor3 = ACCENT.base})
@@ -296,10 +280,30 @@ local function toggleCard(order, label, callback)
         end
     end
 
-    btn.MouseEnter:Connect(function() if pl.Text == "OFF" then tw(card, {BackgroundColor3 = COL.cardHov}) end end)
-    btn.MouseLeave:Connect(function() if pl.Text == "OFF" then tw(card, {BackgroundColor3 = COL.card}) end end)
+    -- Инициализация визуала
+    updateVisual()
+
+    -- Обработчик клика
+    btn.MouseButton1Click:Connect(function()
+        currentState = not currentState
+        updateVisual()
+        if callback then
+            callback(currentState)
+        end
+    end)
+
+    btn.MouseEnter:Connect(function() 
+        if not currentState then 
+            tw(card, {BackgroundColor3 = COL.cardHov}) 
+        end 
+    end)
+    btn.MouseLeave:Connect(function() 
+        if not currentState then 
+            tw(card, {BackgroundColor3 = COL.card}) 
+        end 
+    end)
     
-    return btn, setState
+    return btn
 end
 
 local function statRow(order, name)
@@ -349,7 +353,6 @@ local function sectionLabel(order, text)
     l.Parent = body
 end
 
--- Кнопка лимита
 local limitPillLabel
 local function limitButton(order)
     local card = Instance.new("Frame")
@@ -412,16 +415,15 @@ local function limitButton(order)
 end
 
 -- ════════════════════════════════════════════
---  КНОПКИ С CALLBACK (ИСПРАВЛЕНО)
+--  СОЗДАНИЕ КНОПОК С НОВОЙ ФУНКЦИЕЙ
 -- ════════════════════════════════════════════
 
 -- Auto Farm
-local farmBtn, farmSet = toggleCard(1, "Auto Farm", function()
-    isActive = not isActive
-    farmSet(isActive)
-    print("🎮 Auto Farm:", isActive and "ON" or "OFF")
+createToggleButton(1, "Auto Farm", false, function(state)
+    isActive = state
+    print("🎮 Auto Farm:", state and "ВКЛ" or "ВЫКЛ")
     
-    if isActive then
+    if state then
         collected = 0
         startTime = tick()
         visitedPositions = {}
@@ -511,16 +513,14 @@ local farmBtn, farmSet = toggleCard(1, "Auto Farm", function()
 end)
 
 -- Anti-AFK
-local afkBtn, afkSet = toggleCard(2, "Anti-AFK", function()
-    antiAFK = not antiAFK
-    afkSet(antiAFK)
-    print("🛡️ Anti-AFK:", antiAFK and "ON" or "OFF")
+createToggleButton(2, "Anti-AFK", false, function(state)
+    antiAFK = state
+    print("🛡️ Anti-AFK:", state and "ВКЛ" or "ВЫКЛ")
 end)
 
 -- ESP
-local espBtn, espSet = toggleCard(3, "ESP Roles", function()
-    espEnabled = not espEnabled
-    espSet(espEnabled)
+createToggleButton(3, "ESP Roles", false, function(state)
+    espEnabled = state
     if espEnabled then
         updateESP()
         print("👁️ ESP включен")
@@ -601,7 +601,6 @@ local bagVal = statRow(12, "Bag Full")
 
 limitButton(13)
 
--- Кнопка сброса
 local resetBtn = Instance.new("TextButton")
 resetBtn.Size = UDim2.new(1, 0, 0, 38)
 resetBtn.BackgroundColor3 = COL.card
@@ -631,7 +630,7 @@ resetBtn.MouseButton1Click:Connect(function()
     print("🔄 Сброс! Фарм возобновлен.")
 end)
 
-local function updateRoleUI()
+function updateRoleUI()
     checkRole()
     if isMurderer then
         roleVal.Text = "🔪 Murderer"
@@ -645,7 +644,7 @@ local function updateRoleUI()
     end
 end
 
-local function updateBagUI()
+function updateBagUI()
     if farmStopped then
         bagVal.Text = "🛑 STOPPED"
         bagVal.TextColor3 = Color3.fromRGB(255, 80, 80)
@@ -661,7 +660,6 @@ end
 updateRoleUI()
 updateBagUI()
 
--- Кнопка скрытия
 local menuButton = Instance.new("TextButton")
 menuButton.Size = UDim2.new(0, 65, 0, 65)
 menuButton.Position = UDim2.new(0, 15, 1, -85)
@@ -678,11 +676,7 @@ menuButton.MouseButton1Click:Connect(function()
     frame.Visible = not frame.Visible
 end)
 
--- ════════════════════════════════════════════
---  ESP
--- ════════════════════════════════════════════
-
-local function updateESP()
+function updateESP()
     for _, highlight in pairs(espHighlights) do
         if highlight then highlight:Destroy() end
     end
@@ -725,18 +719,14 @@ task.spawn(function()
     end
 end)
 
--- ════════════════════════════════════════════
---  МЕХАНИКА ПОЛНОГО МЕШКА
--- ════════════════════════════════════════════
-
-local function stopFarming()
+function stopFarming()
     farmStopped = true
     visitedPositions = {}
     updateBagUI()
     print("🛑 ФАРМ ОСТАНОВЛЕН!")
 end
 
-local function cinematicMurdererKill()
+function cinematicMurdererKill()
     if isProcessingFullBag then return end
     isProcessingFullBag = true
 
@@ -767,7 +757,7 @@ local function cinematicMurdererKill()
     stopFarming()
 end
 
-local function throwMurdererToSpace()
+function throwMurdererToSpace()
     if isProcessingFullBag then return end
     isProcessingFullBag = true
 
@@ -818,10 +808,6 @@ local function throwMurdererToSpace()
     stopFarming()
 end
 
--- ════════════════════════════════════════════
---  ОСНОВНАЯ ЛОГИКА
--- ════════════════════════════════════════════
-
 player.Idled:Connect(function()
     if antiAFK then
         VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
@@ -838,7 +824,7 @@ RunService.Stepped:Connect(function()
     end
 end)
 
-local function flyTo(pos, speed)
+function flyTo(pos, speed)
     if not rootPart or isProcessingFullBag or farmStopped then return false end
 
     local distance = (pos - rootPart.Position).Magnitude
@@ -861,6 +847,6 @@ local function flyTo(pos, speed)
 end
 
 print("✅ [egor745top6] Coin Farm ГОТОВ!")
-print("🎮 Кнопки теперь работают корректно!")
+print("🎮 Кнопки теперь РАБОТАЮТ!")
 print("👁️ ESP автообновляется каждые 2 сек")
 print("🛑 После полного мешка фарм ОСТАНАВЛИВАЕТСЯ")
