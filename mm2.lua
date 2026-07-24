@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MM2 Coin Autofarm · [egor745top6] · ИСПРАВЛЕНИЕ СЧЁТЧИКА
+--  MM2 Coin Autofarm · [egor745top6] · ИСПРАВЛЕНИЕ СБОРА
 -- ═══════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -344,7 +344,7 @@ local function sectionLabel(order, text)
     l.Parent = body
 end
 
--- 🔥 СОЗДАЁМ ВСЕ ЭЛЕМЕНТЫ СРАЗУ (ДО КНОПОК!)
+-- СОЗДАЁМ ВСЕ ЭЛЕМЕНТЫ СРАЗУ
 sectionLabel(5, "STATS")
 local counterVal = statRow(6, "Coins Collected")
 local timerVal = statRow(7, "Time Active")
@@ -452,7 +452,7 @@ function throwMurdererToSpace()
     counterVal.Text = "0"
 end
 
--- ФАРМ ЛОГИКА
+-- 🔥 ИСПРАВЛЕННАЯ ЛОГИКА СБОРА
 function flyTo(pos, speed)
     if not rootPart or farmStopped then return false end
     local distance = (pos - rootPart.Position).Magnitude
@@ -522,42 +522,51 @@ function startFarming()
             end
 
             if closest then
+                local coinPos = closest.Position
                 visitedPositions[closest] = true
                 
                 if farmStopped then continue end
                 
-                local arrived = flyTo(closest.Position, flySpeed)
+                local arrived = flyTo(coinPos, flySpeed)
 
                 if farmStopped then continue end
 
                 if arrived then
-                    task.wait(0.5)
-
-                    if not closest.Parent or not closest:IsDescendantOf(workspace) then
-                        collected = collected + 1
-                        
-                        -- 🔥 ОБНОВЛЯЕМ СРАЗУ ЖЕ
-                        counterVal.Text = tostring(collected)
-                        
-                        collectSound:Play()
-                        updateBagUI()
-                        print("🪙 Собрано:", collected, "/", MAX_BAG, "| GUI:", counterVal.Text)
-
-                        if collected >= MAX_BAG and not farmStopped then
-                            print("🎒 МЕШОК ПОЛОН! Останавливаю...")
-                            bagFull = true
-                            farmStopped = true
+                    task.wait(0.3)
+                    
+                    -- 🔥 ПРОВЕРКА: монета всё ещё существует?
+                    if closest.Parent and closest:IsDescendantOf(workspace) then
+                        -- Монета существует — проверяем расстояние
+                        local distToCoin = (closest.Position - rootPart.Position).Magnitude
+                        if distToCoin < 5 then
+                            -- Мы рядом с монетой — значит мы её собрали!
+                            collected = collected + 1
+                            counterVal.Text = tostring(collected)
+                            collectSound:Play()
                             updateBagUI()
-                            checkRole()
-
-                            if isMurderer then
-                                cinematicMurdererKill()
-                            else
-                                throwMurdererToSpace()
-                            end
+                            print("✅ Собрано:", collected, "/", MAX_BAG)
                             
-                            stopFarming()
+                            if collected >= MAX_BAG and not farmStopped then
+                                print("🎒 МЕШОК ПОЛОН!")
+                                bagFull = true
+                                farmStopped = true
+                                updateBagUI()
+                                checkRole()
+
+                                if isMurderer then
+                                    cinematicMurdererKill()
+                                else
+                                    throwMurdererToSpace()
+                                end
+                                
+                                stopFarming()
+                            end
+                        else
+                            print("⚠️ Монета существует, но мы далеко — пропускаем")
                         end
+                    else
+                        -- Монета исчезла — значит её собрал кто-то другой
+                        print("❌ Монета исчезла (собрал кто-то другой)")
                     end
                 end
             else
@@ -572,7 +581,7 @@ function startFarming()
     end)
 end
 
--- 🔥 ТЕПЕРЬ СОЗДАЁМ КНОПКИ (ПОСЛЕ counterVal)
+-- КНОПКИ
 local farmToggle = toggleCard(1, "Auto Farm", function(state)
     isActive = state
     print("🎮 Auto Farm:", state and "ВКЛ" or "ВЫКЛ")
@@ -819,5 +828,5 @@ updateRoleUI()
 updateBagUI()
 
 print("✅ [egor745top6] Coin Farm ГОТОВ!")
-print("🔢 Счётчик теперь обновляется СРАЗУ!")
-print("🛑 Фарм останавливается при полном мешке!")
+print("✅ Теперь засчитывает ТОЛЬКО реально собранные монеты!")
+print("❌ Не засчитывает монеты, собранные другими игроками!")
