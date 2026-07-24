@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MM2 Coin Autofarm · [egor745top6] · КНОПКИ ПОЛНОСТЬЮ ИСПРАВЛЕНЫ
+--  MM2 Coin Autofarm · [egor745top6] · ПОЛНАЯ ВЕРСИЯ
 -- ═══════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -29,6 +29,24 @@ local espHighlights = {}
 
 local MAX_BAG = 40
 
+-- ════════════════════════════════════════════
+--  ЗВУКИ
+-- ════════════════════════════════════════════
+local collectSound = Instance.new("Sound")
+collectSound.SoundId = "rbxassetid://12221967"
+collectSound.Volume = 1
+
+local killSound = Instance.new("Sound")
+killSound.SoundId = "rbxassetid://9120392731"
+killSound.Volume = 0.8
+
+local deathSound = Instance.new("Sound")
+deathSound.SoundId = "rbxassetid://9120392731"
+deathSound.Volume = 0.6
+
+-- ════════════════════════════════════════════
+--  ПРОВЕРКА РОЛИ
+-- ════════════════════════════════════════════
 local function getPlayerRole(p)
     if p.Character then
         if p.Character:FindFirstChild("Knife") or p.Character:FindFirstChild("MurdererSword") then
@@ -72,11 +90,15 @@ player.CharacterAdded:Connect(function(char)
     character = char
     rootPart = char:WaitForChild("HumanoidRootPart")
     visitedPositions = {}
+    farmStopped = false
     task.wait(1.5)
     checkRole()
     updateRoleUI()
 end)
 
+-- ════════════════════════════════════════════
+--  ТЕМА
+-- ════════════════════════════════════════════
 local COL = {
     bg = Color3.fromRGB(15, 10, 25),
     card = Color3.fromRGB(28, 18, 45),
@@ -96,6 +118,7 @@ local ACCENT = {
 local function corner(obj, r)
     local c = Instance.new("UICorner", obj)
     c.CornerRadius = UDim.new(0, r)
+    return c
 end
 
 local function stroke(obj, color, th)
@@ -103,24 +126,34 @@ local function stroke(obj, color, th)
     s.Color = color
     s.Thickness = th or 1
     s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    return s
 end
 
 local function tw(obj, props, t, style)
     TweenService:Create(obj, TweenInfo.new(t or 0.2, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
 end
 
+-- Очистка старого GUI
 do
     local pg = player:WaitForChild("PlayerGui")
     local old = pg:FindFirstChild("AutoFarmGui")
     if old then old:Destroy() end
 end
 
+-- ════════════════════════════════════════════
+--  GUI
+-- ════════════════════════════════════════════
 local gui = Instance.new("ScreenGui")
 gui.Name = "AutoFarmGui"
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
 gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Звуки в GUI
+collectSound.Parent = gui
+killSound.Parent = gui
+deathSound.Parent = gui
 
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 340, 0, 520)
@@ -132,6 +165,7 @@ frame.Parent = gui
 corner(frame, 14)
 stroke(frame, COL.border, 1.5)
 
+-- Верхняя панель
 local titleBar = Instance.new("Frame")
 titleBar.Size = UDim2.new(1, 0, 0, 42)
 titleBar.BackgroundTransparency = 1
@@ -163,6 +197,27 @@ titleLbl.TextXAlignment = Enum.TextXAlignment.Left
 titleLbl.ZIndex = 2
 titleLbl.Parent = titleBar
 
+-- Перетаскивание
+do
+    local dragging, dragStart, startPos = false, nil, nil
+    titleBar.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = i.Position; startPos = frame.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if not dragging then return end
+        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+            local delta = i.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = false end
+    end)
+end
+
+-- Scrolling Frame
 local body = Instance.new("ScrollingFrame")
 body.Size = UDim2.new(1, 0, 1, -42)
 body.Position = UDim2.new(0, 0, 0, 42)
@@ -187,29 +242,10 @@ do
     l.Padding = UDim.new(0, 8)
 end
 
-do
-    local dragging, dragStart, startPos = false, nil, nil
-    titleBar.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = i.Position; startPos = frame.Position
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(i)
-        if not dragging then return end
-        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
-            local delta = i.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = false end
-    end)
-end
-
 -- ════════════════════════════════════════════
---  ПОЛНОСТЬЮ ПЕРЕДЕЛАННАЯ ФУНКЦИЯ КНОПКИ
+--  КОМПОНЕНТЫ UI (ИСПРАВЛЕННЫЕ КНОПКИ)
 -- ════════════════════════════════════════════
-local function createToggleButton(order, label, initialState, callback)
+local function toggleCard(order, label)
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, 0, 0, 44)
     card.BackgroundColor3 = COL.card
@@ -245,8 +281,8 @@ local function createToggleButton(order, label, initialState, callback)
     local pl = Instance.new("TextLabel")
     pl.Size = UDim2.new(1, 0, 1, 0)
     pl.BackgroundTransparency = 1
-    pl.Text = initialState and "ON" or "OFF"
-    pl.TextColor3 = initialState and COL.white or COL.muted
+    pl.Text = "OFF"
+    pl.TextColor3 = COL.muted
     pl.Font = Enum.Font.GothamBold
     pl.TextSize = 11
     pl.ZIndex = 2
@@ -259,11 +295,9 @@ local function createToggleButton(order, label, initialState, callback)
     btn.ZIndex = 3
     btn.Parent = card
 
-    local currentState = initialState
-
-    -- Функция обновления визуала
-    local function updateVisual()
-        if currentState then
+    -- Функция установки состояния
+    local function setState(on)
+        if on then
             tw(card, {BackgroundColor3 = ACCENT.dim})
             tw(cs, {Color = ACCENT.base})
             tw(pill, {BackgroundColor3 = ACCENT.base})
@@ -280,30 +314,20 @@ local function createToggleButton(order, label, initialState, callback)
         end
     end
 
-    -- Инициализация визуала
-    updateVisual()
-
-    -- Обработчик клика
+    -- ВАЖНО: обработчик клика ВНУТРИ функции
     btn.MouseButton1Click:Connect(function()
-        currentState = not currentState
-        updateVisual()
-        if callback then
-            callback(currentState)
+        -- Инвертируем визуально
+        if pl.Text == "OFF" then
+            setState(true)
+        else
+            setState(false)
         end
     end)
 
-    btn.MouseEnter:Connect(function() 
-        if not currentState then 
-            tw(card, {BackgroundColor3 = COL.cardHov}) 
-        end 
-    end)
-    btn.MouseLeave:Connect(function() 
-        if not currentState then 
-            tw(card, {BackgroundColor3 = COL.card}) 
-        end 
-    end)
-    
-    return btn
+    btn.MouseEnter:Connect(function() if pl.Text == "OFF" then tw(card, {BackgroundColor3 = COL.cardHov}) end end)
+    btn.MouseLeave:Connect(function() if pl.Text == "OFF" then tw(card, {BackgroundColor3 = COL.card}) end end)
+
+    return btn, setState, pl
 end
 
 local function statRow(order, name)
@@ -353,6 +377,7 @@ local function sectionLabel(order, text)
     l.Parent = body
 end
 
+-- Кнопка лимита
 local limitPillLabel
 local function limitButton(order)
     local card = Instance.new("Frame")
@@ -415,15 +440,298 @@ local function limitButton(order)
 end
 
 -- ════════════════════════════════════════════
---  СОЗДАНИЕ КНОПОК С НОВОЙ ФУНКЦИЕЙ
+--  СОЗДАНИЕ КНОПОК
+-- ════════════════════════════════════════════
+local farmBtn, farmSet, farmPill = toggleCard(1, "Auto Farm")
+local afkBtn, afkSet, afkPill = toggleCard(2, "Anti-AFK")
+local espBtn, espSet, espPill = toggleCard(3, "ESP Roles")
+
+-- Кнопка скорости
+local speedCard = Instance.new("Frame")
+speedCard.Size = UDim2.new(1, 0, 0, 44)
+speedCard.BackgroundColor3 = COL.card
+speedCard.BorderSizePixel = 0
+speedCard.LayoutOrder = 4
+speedCard.ZIndex = 2
+speedCard.Parent = body
+corner(speedCard, 10)
+stroke(speedCard, COL.border, 1)
+do
+    local t = Instance.new("TextLabel")
+    t.Size = UDim2.new(1, -90, 1, 0)
+    t.Position = UDim2.new(0, 14, 0, 0)
+    t.BackgroundTransparency = 1
+    t.Text = "Farm Speed"
+    t.TextColor3 = COL.text
+    t.Font = Enum.Font.GothamSemibold
+    t.TextSize = 14
+    t.TextXAlignment = Enum.TextXAlignment.Left
+    t.ZIndex = 2
+    t.Parent = speedCard
+end
+local speedPillLbl
+do
+    local pill = Instance.new("Frame")
+    pill.Size = UDim2.new(0, 52, 0, 24)
+    pill.Position = UDim2.new(1, -66, 0.5, -12)
+    pill.BackgroundColor3 = ACCENT.dim
+    pill.BorderSizePixel = 0
+    pill.ZIndex = 2
+    pill.Parent = speedCard
+    corner(pill, 12)
+    stroke(pill, ACCENT.base, 1)
+    speedPillLbl = Instance.new("TextLabel")
+    speedPillLbl.Size = UDim2.new(1, 0, 1, 0)
+    speedPillLbl.BackgroundTransparency = 1
+    speedPillLbl.Text = tostring(flySpeed)
+    speedPillLbl.TextColor3 = ACCENT.light
+    speedPillLbl.Font = Enum.Font.GothamBold
+    speedPillLbl.TextSize = 12
+    speedPillLbl.ZIndex = 2
+    speedPillLbl.Parent = pill
+end
+local speedBtn = Instance.new("TextButton")
+speedBtn.Size = UDim2.new(1, 0, 1, 0)
+speedBtn.BackgroundTransparency = 1
+speedBtn.Text = ""
+speedBtn.ZIndex = 3
+speedBtn.Parent = speedCard
+
+-- Статистика
+sectionLabel(5, "STATS")
+local counterVal = statRow(6, "Coins Collected")
+local timerVal = statRow(7, "Time Active")
+local rateVal = statRow(8, "Coins / Hour")
+
+sectionLabel(9, "ROLE INFO")
+local roleVal = statRow(10, "Your Role")
+
+sectionLabel(11, "BAG STATUS")
+local bagVal = statRow(12, "Bag Full")
+
+limitButton(13)
+
+-- Кнопка сброса
+local resetBtn = Instance.new("TextButton")
+resetBtn.Size = UDim2.new(1, 0, 0, 38)
+resetBtn.BackgroundColor3 = COL.card
+resetBtn.Text = "Reset & Resume"
+resetBtn.TextColor3 = COL.text
+resetBtn.Font = Enum.Font.GothamBold
+resetBtn.TextSize = 13
+resetBtn.AutoButtonColor = false
+resetBtn.LayoutOrder = 14
+resetBtn.ZIndex = 2
+resetBtn.Parent = body
+corner(resetBtn, 10)
+stroke(resetBtn, COL.border, 1)
+resetBtn.MouseEnter:Connect(function() tw(resetBtn, {BackgroundColor3 = COL.cardHov}) end)
+resetBtn.MouseLeave:Connect(function() tw(resetBtn, {BackgroundColor3 = COL.card}) end)
+
+-- ════════════════════════════════════════════
+--  UI ОБНОВЛЕНИЯ
+-- ════════════════════════════════════════════
+function updateRoleUI()
+    checkRole()
+    if isMurderer then
+        roleVal.Text = "🔪 Murderer"
+        roleVal.TextColor3 = Color3.fromRGB(255, 50, 50)
+    elseif isSheriff then
+        roleVal.Text = "⭐ Sheriff"
+        roleVal.TextColor3 = Color3.fromRGB(50, 150, 255)
+    else
+        roleVal.Text = "👤 Innocent"
+        roleVal.TextColor3 = Color3.fromRGB(50, 255, 50)
+    end
+end
+
+function updateBagUI()
+    if farmStopped then
+        bagVal.Text = "🛑 STOPPED"
+        bagVal.TextColor3 = Color3.fromRGB(255, 80, 80)
+    elseif bagFull then
+        bagVal.Text = "✅ FULL"
+        bagVal.TextColor3 = Color3.fromRGB(255, 200, 0)
+    else
+        bagVal.Text = collected .. "/" .. MAX_BAG
+        bagVal.TextColor3 = Color3.fromRGB(100, 100, 100)
+    end
+end
+
+updateRoleUI()
+updateBagUI()
+
+-- Кнопка скрытия меню
+local menuButton = Instance.new("TextButton")
+menuButton.Size = UDim2.new(0, 65, 0, 65)
+menuButton.Position = UDim2.new(0, 15, 1, -85)
+menuButton.BackgroundColor3 = ACCENT.base
+menuButton.Text = "💎"
+menuButton.TextColor3 = COL.white
+menuButton.TextSize = 28
+menuButton.Font = Enum.Font.GothamBold
+menuButton.ZIndex = 10
+menuButton.Parent = gui
+corner(menuButton, 32)
+stroke(menuButton, ACCENT.light, 2)
+menuButton.MouseButton1Click:Connect(function()
+    frame.Visible = not frame.Visible
+end)
+
+-- ════════════════════════════════════════════
+--  ESP СИСТЕМА
+-- ════════════════════════════════════════════
+function updateESP()
+    for _, highlight in pairs(espHighlights) do
+        if highlight then highlight:Destroy() end
+    end
+    espHighlights = {}
+
+    if not espEnabled then return end
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local role = getPlayerRole(p)
+            local color
+
+            if role == "Murderer" then
+                color = Color3.fromRGB(255, 50, 50)
+            elseif role == "Sheriff" then
+                color = Color3.fromRGB(50, 150, 255)
+            else
+                color = Color3.fromRGB(50, 255, 50)
+            end
+
+            local highlight = Instance.new("Highlight")
+            highlight.FillColor = color
+            highlight.OutlineColor = color
+            highlight.FillTransparency = 0.7
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Parent = p.Character
+
+            espHighlights[p] = highlight
+        end
+    end
+end
+
+-- Автообновление ESP каждые 2 секунды
+task.spawn(function()
+    while true do
+        if espEnabled then
+            updateESP()
+        end
+        task.wait(2)
+    end
+end)
+
+-- ════════════════════════════════════════════
+--  МЕХАНИКА ПОЛНОГО МЕШКА
+-- ════════════════════════════════════════════
+function stopFarming()
+    farmStopped = true
+    visitedPositions = {}
+    updateBagUI()
+    print("🛑 ФАРМ ОСТАНОВЛЕН! Нажми Reset & Resume")
+end
+
+function cinematicMurdererKill()
+    if isProcessingFullBag then return end
+    isProcessingFullBag = true
+
+    print("🔪 Убийца убивает всех!")
+    killSound:Play()
+
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then isProcessingFullBag = false stopFarming() return end
+
+    local originalCFrame = hrp.CFrame
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+            local targetHrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if targetHrp then
+                hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
+                task.wait(0.15)
+                p.Character.Humanoid.Health = 0
+                print("💀 Убит:", p.Name)
+            end
+        end
+    end
+
+    hrp.CFrame = originalCFrame
+    bagFull = false
+    collected = 0
+    counterVal.Text = "0"
+    isProcessingFullBag = false
+    stopFarming()
+end
+
+function throwMurdererToSpace()
+    if isProcessingFullBag then return end
+    isProcessingFullBag = true
+
+    print("🚀 Ищем мардера...")
+    deathSound:Play()
+
+    local murdererPlayer = nil
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player then
+            local role = getPlayerRole(p)
+            if role == "Murderer" then
+                murdererPlayer = p
+                break
+            end
+        end
+    end
+
+    if murdererPlayer and murdererPlayer.Character and murdererPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = murdererPlayer.Character.HumanoidRootPart
+
+        local bodyVel = Instance.new("BodyVelocity")
+        bodyVel.Velocity = Vector3.new(0, 2000, 0)
+        bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyVel.Parent = hrp
+
+        for i = 1, 15 do
+            local trail = Instance.new("Part")
+            trail.Size = Vector3.new(2, 2, 2)
+            trail.Position = hrp.Position + Vector3.new(math.random(-3, 3), math.random(-3, 3), math.random(-3, 3))
+            trail.Anchored = true
+            trail.CanCollide = false
+            trail.Material = Enum.Material.Neon
+            trail.Color = Color3.fromRGB(155, 60, 255)
+            trail.Transparency = 0.3
+            trail.Parent = workspace
+            Debris:AddItem(trail, 2)
+        end
+
+        Debris:AddItem(bodyVel, 5)
+        print("🚀", murdererPlayer.Name, "отправлен в космос!")
+    else
+        print("⚠️ Мардер не найден!")
+    end
+
+    bagFull = false
+    collected = 0
+    counterVal.Text = "0"
+    isProcessingFullBag = false
+    stopFarming()
+end
+
+-- ════════════════════════════════════════════
+--  ОБРАБОТЧИКИ КНОПОК (ИСПРАВЛЕНО)
 -- ════════════════════════════════════════════
 
--- Auto Farm
-createToggleButton(1, "Auto Farm", false, function(state)
-    isActive = state
-    print("🎮 Auto Farm:", state and "ВКЛ" or "ВЫКЛ")
+-- AUTO FARM - проверяем состояние через текст кнопки
+farmBtn.MouseButton1Click:Connect(function()
+    -- Ждем пока toggleCard обновит визуал
+    task.wait(0.05)
     
-    if state then
+    if farmPill.Text == "ON" then
+        isActive = true
+        print("🎮 Auto Farm: ВКЛ")
+        
         collected = 0
         startTime = tick()
         visitedPositions = {}
@@ -482,6 +790,7 @@ createToggleButton(1, "Auto Farm", false, function(state)
                         if not closest.Parent or not closest:IsDescendantOf(workspace) then
                             collected = collected + 1
                             counterVal.Text = tostring(collected)
+                            collectSound:Play()
                             updateBagUI()
                             print("🪙", collected, "/", MAX_BAG)
 
@@ -509,78 +818,39 @@ createToggleButton(1, "Auto Farm", false, function(state)
                 task.wait(0.1)
             end
         end)
+    else
+        isActive = false
+        print("🎮 Auto Farm: ВЫКЛ")
     end
 end)
 
--- Anti-AFK
-createToggleButton(2, "Anti-AFK", false, function(state)
-    antiAFK = state
-    print("🛡️ Anti-AFK:", state and "ВКЛ" or "ВЫКЛ")
+-- ANTI-AFK
+afkBtn.MouseButton1Click:Connect(function()
+    task.wait(0.05)
+    if afkPill.Text == "ON" then
+        antiAFK = true
+        print("🛡️ Anti-AFK: ВКЛ")
+    else
+        antiAFK = false
+        print("🛡️ Anti-AFK: ВЫКЛ")
+    end
 end)
 
 -- ESP
-createToggleButton(3, "ESP Roles", false, function(state)
-    espEnabled = state
-    if espEnabled then
+espBtn.MouseButton1Click:Connect(function()
+    task.wait(0.05)
+    if espPill.Text == "ON" then
+        espEnabled = true
         updateESP()
-        print("👁️ ESP включен")
+        print("👁️ ESP: ВКЛ")
     else
+        espEnabled = false
         updateESP()
-        print("👁️ ESP выключен")
+        print("👁️ ESP: ВЫКЛ")
     end
 end)
 
--- Скорость
-local speedCard = Instance.new("Frame")
-speedCard.Size = UDim2.new(1, 0, 0, 44)
-speedCard.BackgroundColor3 = COL.card
-speedCard.BorderSizePixel = 0
-speedCard.LayoutOrder = 4
-speedCard.ZIndex = 2
-speedCard.Parent = body
-corner(speedCard, 10)
-stroke(speedCard, COL.border, 1)
-do
-    local t = Instance.new("TextLabel")
-    t.Size = UDim2.new(1, -90, 1, 0)
-    t.Position = UDim2.new(0, 14, 0, 0)
-    t.BackgroundTransparency = 1
-    t.Text = "Farm Speed"
-    t.TextColor3 = COL.text
-    t.Font = Enum.Font.GothamSemibold
-    t.TextSize = 14
-    t.TextXAlignment = Enum.TextXAlignment.Left
-    t.ZIndex = 2
-    t.Parent = speedCard
-end
-local speedPillLbl
-do
-    local pill = Instance.new("Frame")
-    pill.Size = UDim2.new(0, 52, 0, 24)
-    pill.Position = UDim2.new(1, -66, 0.5, -12)
-    pill.BackgroundColor3 = ACCENT.dim
-    pill.BorderSizePixel = 0
-    pill.ZIndex = 2
-    pill.Parent = speedCard
-    corner(pill, 12)
-    stroke(pill, ACCENT.base, 1)
-    speedPillLbl = Instance.new("TextLabel")
-    speedPillLbl.Size = UDim2.new(1, 0, 1, 0)
-    speedPillLbl.BackgroundTransparency = 1
-    speedPillLbl.Text = tostring(flySpeed)
-    speedPillLbl.TextColor3 = ACCENT.light
-    speedPillLbl.Font = Enum.Font.GothamBold
-    speedPillLbl.TextSize = 12
-    speedPillLbl.ZIndex = 2
-    speedPillLbl.Parent = pill
-end
-local speedBtn = Instance.new("TextButton")
-speedBtn.Size = UDim2.new(1, 0, 1, 0)
-speedBtn.BackgroundTransparency = 1
-speedBtn.Text = ""
-speedBtn.ZIndex = 3
-speedBtn.Parent = speedCard
-
+-- СКОРОСТЬ
 speedBtn.MouseButton1Click:Connect(function()
     flySpeed = flySpeed + 5
     if flySpeed > 50 then flySpeed = 10 end
@@ -588,35 +858,7 @@ speedBtn.MouseButton1Click:Connect(function()
     print("⚡ Скорость:", flySpeed)
 end)
 
-sectionLabel(5, "STATS")
-local counterVal = statRow(6, "Coins Collected")
-local timerVal = statRow(7, "Time Active")
-local rateVal = statRow(8, "Coins / Hour")
-
-sectionLabel(9, "ROLE INFO")
-local roleVal = statRow(10, "Your Role")
-
-sectionLabel(11, "BAG STATUS")
-local bagVal = statRow(12, "Bag Full")
-
-limitButton(13)
-
-local resetBtn = Instance.new("TextButton")
-resetBtn.Size = UDim2.new(1, 0, 0, 38)
-resetBtn.BackgroundColor3 = COL.card
-resetBtn.Text = "Reset & Resume"
-resetBtn.TextColor3 = COL.text
-resetBtn.Font = Enum.Font.GothamBold
-resetBtn.TextSize = 13
-resetBtn.AutoButtonColor = false
-resetBtn.LayoutOrder = 14
-resetBtn.ZIndex = 2
-resetBtn.Parent = body
-corner(resetBtn, 10)
-stroke(resetBtn, COL.border, 1)
-resetBtn.MouseEnter:Connect(function() tw(resetBtn, {BackgroundColor3 = COL.cardHov}) end)
-resetBtn.MouseLeave:Connect(function() tw(resetBtn, {BackgroundColor3 = COL.card}) end)
-
+-- RESET
 resetBtn.MouseButton1Click:Connect(function()
     collected = 0
     startTime = tick()
@@ -630,183 +872,9 @@ resetBtn.MouseButton1Click:Connect(function()
     print("🔄 Сброс! Фарм возобновлен.")
 end)
 
-function updateRoleUI()
-    checkRole()
-    if isMurderer then
-        roleVal.Text = "🔪 Murderer"
-        roleVal.TextColor3 = Color3.fromRGB(255, 50, 50)
-    elseif isSheriff then
-        roleVal.Text = "⭐ Sheriff"
-        roleVal.TextColor3 = Color3.fromRGB(50, 150, 255)
-    else
-        roleVal.Text = "👤 Innocent"
-        roleVal.TextColor3 = Color3.fromRGB(50, 255, 50)
-    end
-end
-
-function updateBagUI()
-    if farmStopped then
-        bagVal.Text = "🛑 STOPPED"
-        bagVal.TextColor3 = Color3.fromRGB(255, 80, 80)
-    elseif bagFull then
-        bagVal.Text = "✅ FULL"
-        bagVal.TextColor3 = Color3.fromRGB(255, 200, 0)
-    else
-        bagVal.Text = "❌ " .. collected .. "/" .. MAX_BAG
-        bagVal.TextColor3 = Color3.fromRGB(100, 100, 100)
-    end
-end
-
-updateRoleUI()
-updateBagUI()
-
-local menuButton = Instance.new("TextButton")
-menuButton.Size = UDim2.new(0, 65, 0, 65)
-menuButton.Position = UDim2.new(0, 15, 1, -85)
-menuButton.BackgroundColor3 = ACCENT.base
-menuButton.Text = "💎"
-menuButton.TextColor3 = COL.white
-menuButton.TextSize = 28
-menuButton.Font = Enum.Font.GothamBold
-menuButton.ZIndex = 10
-menuButton.Parent = gui
-corner(menuButton, 32)
-stroke(menuButton, ACCENT.light, 2)
-menuButton.MouseButton1Click:Connect(function()
-    frame.Visible = not frame.Visible
-end)
-
-function updateESP()
-    for _, highlight in pairs(espHighlights) do
-        if highlight then highlight:Destroy() end
-    end
-    espHighlights = {}
-
-    if not espEnabled then return end
-
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local role = getPlayerRole(p)
-            local color
-
-            if role == "Murderer" then
-                color = Color3.fromRGB(255, 50, 50)
-            elseif role == "Sheriff" then
-                color = Color3.fromRGB(50, 150, 255)
-            else
-                color = Color3.fromRGB(50, 255, 50)
-            end
-
-            local highlight = Instance.new("Highlight")
-            highlight.FillColor = color
-            highlight.OutlineColor = color
-            highlight.FillTransparency = 0.7
-            highlight.OutlineTransparency = 0
-            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            highlight.Parent = p.Character
-
-            espHighlights[p] = highlight
-        end
-    end
-end
-
-task.spawn(function()
-    while true do
-        if espEnabled then
-            updateESP()
-        end
-        task.wait(2)
-    end
-end)
-
-function stopFarming()
-    farmStopped = true
-    visitedPositions = {}
-    updateBagUI()
-    print("🛑 ФАРМ ОСТАНОВЛЕН!")
-end
-
-function cinematicMurdererKill()
-    if isProcessingFullBag then return end
-    isProcessingFullBag = true
-
-    print("🔪 Убийца убивает всех!")
-
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then isProcessingFullBag = false stopFarming() return end
-
-    local originalCFrame = hrp.CFrame
-
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            local targetHrp = p.Character:FindFirstChild("HumanoidRootPart")
-            if targetHrp then
-                hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
-                task.wait(0.15)
-                p.Character.Humanoid.Health = 0
-                print("💀 Убит:", p.Name)
-            end
-        end
-    end
-
-    hrp.CFrame = originalCFrame
-    bagFull = false
-    collected = 0
-    counterVal.Text = "0"
-    isProcessingFullBag = false
-    stopFarming()
-end
-
-function throwMurdererToSpace()
-    if isProcessingFullBag then return end
-    isProcessingFullBag = true
-
-    print("🚀 Ищем мардера...")
-
-    local murdererPlayer = nil
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= player then
-            local role = getPlayerRole(p)
-            if role == "Murderer" then
-                murdererPlayer = p
-                break
-            end
-        end
-    end
-
-    if murdererPlayer and murdererPlayer.Character and murdererPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = murdererPlayer.Character.HumanoidRootPart
-
-        local bodyVel = Instance.new("BodyVelocity")
-        bodyVel.Velocity = Vector3.new(0, 2000, 0)
-        bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bodyVel.Parent = hrp
-
-        for i = 1, 15 do
-            local trail = Instance.new("Part")
-            trail.Size = Vector3.new(2, 2, 2)
-            trail.Position = hrp.Position + Vector3.new(math.random(-3, 3), math.random(-3, 3), math.random(-3, 3))
-            trail.Anchored = true
-            trail.CanCollide = false
-            trail.Material = Enum.Material.Neon
-            trail.Color = Color3.fromRGB(155, 60, 255)
-            trail.Transparency = 0.3
-            trail.Parent = workspace
-            Debris:AddItem(trail, 2)
-        end
-
-        Debris:AddItem(bodyVel, 5)
-        print("🚀", murdererPlayer.Name, "отправлен в космос!")
-    else
-        print("⚠️ Мардер не найден!")
-    end
-
-    bagFull = false
-    collected = 0
-    counterVal.Text = "0"
-    isProcessingFullBag = false
-    stopFarming()
-end
+-- ════════════════════════════════════════════
+--  ОСНОВНЫЕ СИСТЕМЫ
+-- ════════════════════════════════════════════
 
 player.Idled:Connect(function()
     if antiAFK then
@@ -847,6 +915,7 @@ function flyTo(pos, speed)
 end
 
 print("✅ [egor745top6] Coin Farm ГОТОВ!")
-print("🎮 Кнопки теперь РАБОТАЮТ!")
+print("🎮 Все кнопки работают!")
+print("🔊 Звуки включены")
 print("👁️ ESP автообновляется каждые 2 сек")
 print("🛑 После полного мешка фарм ОСТАНАВЛИВАЕТСЯ")
