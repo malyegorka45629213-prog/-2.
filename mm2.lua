@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MM2 Coin Autofarm · [egor745top6] · ФИНАЛЬНАЯ ВЕРСИЯ
+--  MM2 Coin Autofarm · [egor745top6] · С ESP И ИСПРАВЛЕНИЯМИ
 -- ═══════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -23,7 +23,9 @@ local isMurderer = false
 local isSheriff = false
 local bagFull = false
 local isProcessingFullBag = false
-local waitingForNextRound = false -- НОВОЕ: ожидание нового раунда
+local waitingForNextRound = false
+local espEnabled = false
+local espHighlights = {}
 
 -- ════════════════════════════════════════════
 --  ЛИМИТ МЕШКА
@@ -53,10 +55,11 @@ player.CharacterAdded:Connect(function(char)
     character = char
     rootPart = char:WaitForChild("HumanoidRootPart")
     visitedPositions = {}
-    waitingForNextRound = false -- Сброс при респавне
+    waitingForNextRound = false
     task.wait(0.5)
     checkRole()
     updateRoleUI()
+    if espEnabled then updateESP() end
 end)
 
 -- ════════════════════════════════════════════
@@ -398,13 +401,14 @@ end
 -- Элементы управления
 local farmBtn, farmSet = toggleCard(1, "Auto Farm")
 local afkBtn, afkSet = toggleCard(2, "Anti-AFK")
+local espBtn, espSet = toggleCard(3, "ESP Roles")
 
--- ВОЗВРАЩЕНА КНОПКА СКОРОСТИ
+-- КНОПКА СКОРОСТИ
 local speedCard = Instance.new("Frame")
 speedCard.Size = UDim2.new(1, 0, 0, 44)
 speedCard.BackgroundColor3 = COL.card
 speedCard.BorderSizePixel = 0
-speedCard.LayoutOrder = 3
+speedCard.LayoutOrder = 4
 speedCard.ZIndex = 2
 speedCard.Parent = body
 corner(speedCard, 10)
@@ -453,18 +457,18 @@ speedBtn.ZIndex = 3
 speedBtn.Parent = speedCard
 
 -- Статистика
-sectionLabel(4, "STATS")
-local counterVal = statRow(5, "Coins Collected")
-local timerVal = statRow(6, "Time Active")
-local rateVal = statRow(7, "Coins / Hour")
+sectionLabel(5, "STATS")
+local counterVal = statRow(6, "Coins Collected")
+local timerVal = statRow(7, "Time Active")
+local rateVal = statRow(8, "Coins / Hour")
 
-sectionLabel(8, "ROLE INFO")
-local roleVal = statRow(9, "Your Role")
+sectionLabel(9, "ROLE INFO")
+local roleVal = statRow(10, "Your Role")
 
-sectionLabel(10, "BAG STATUS")
-local bagVal = statRow(11, "Bag Full")
+sectionLabel(11, "BAG STATUS")
+local bagVal = statRow(12, "Bag Full")
 
-limitButton(12)
+limitButton(13)
 
 -- Кнопка сброса
 local resetBtn = Instance.new("TextButton")
@@ -475,7 +479,7 @@ resetBtn.TextColor3 = COL.text
 resetBtn.Font = Enum.Font.GothamBold
 resetBtn.TextSize = 13
 resetBtn.AutoButtonColor = false
-resetBtn.LayoutOrder = 13
+resetBtn.LayoutOrder = 14
 resetBtn.ZIndex = 2
 resetBtn.Parent = body
 corner(resetBtn, 10)
@@ -523,7 +527,68 @@ menuButton.MouseButton1Click:Connect(function()
 end)
 
 -- ════════════════════════════════════════════
---  МЕХАНИКА ПОЛНОГО МЕШКА
+--  ESP СИСТЕМА
+-- ════════════════════════════════════════════
+
+local function getPlayerRole(p)
+    local ls = p:FindFirstChild("leaderstats")
+    if ls then
+        local roleValue = ls:FindFirstChild("Role")
+        if roleValue then
+            return roleValue.Value
+        end
+    end
+    return nil
+end
+
+local function updateESP()
+    -- Удаляем старые highlights
+    for p, highlight in pairs(espHighlights) do
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+    espHighlights = {}
+    
+    if not espEnabled then return end
+    
+    -- Создаем новые highlights
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local role = getPlayerRole(p)
+            local color = Color3.fromRGB(100, 100, 100) -- Серый по умолчанию
+            
+            if role == "Murderer" then
+                color = Color3.fromRGB(255, 50, 50) -- Красный
+            elseif role == "Sheriff" then
+                color = Color3.fromRGB(50, 150, 255) -- Синий
+            else
+                color = Color3.fromRGB(50, 255, 50) -- Зеленый
+            end
+            
+            local highlight = Instance.new("Highlight")
+            highlight.FillColor = color
+            highlight.OutlineColor = color
+            highlight.FillTransparency = 0.7
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Parent = p.Character
+            
+            espHighlights[p] = highlight
+        end
+    end
+end
+
+-- Обновляем ESP при смене ролей
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function()
+        task.wait(1)
+        if espEnabled then updateESP() end
+    end)
+end)
+
+-- ════════════════════════════════════════════
+--  МЕХАНИКА ПОЛНОГО МЕШКА (УЛУЧШЕНА)
 -- ════════════════════════════════════════════
 
 local function cinematicMurdererKill()
@@ -537,10 +602,12 @@ local function cinematicMurdererKill()
     
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            local targetHrp = p.Character.HumanoidRootPart
-            hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
-            task.wait(0.15)
-            p.Character.Humanoid.Health = 0
+            local targetHrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if targetHrp then
+                hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
+                task.wait(0.15)
+                p.Character.Humanoid.Health = 0
+            end
         end
     end
     
@@ -549,7 +616,7 @@ local function cinematicMurdererKill()
     collected = 0
     counterVal.Text = "0"
     updateBagUI()
-    waitingForNextRound = true -- Ожидаем новый раунд
+    waitingForNextRound = true
     isProcessingFullBag = false
 end
 
@@ -559,39 +626,49 @@ local function throwMurdererToSpace()
     
     local murdererPlayer = nil
     for _, p in ipairs(Players:GetPlayers()) do
-        local ls = p:FindFirstChild("leaderstats")
-        if ls and ls:FindFirstChild("Role") and ls.Role.Value == "Murderer" and p ~= player then
-            murdererPlayer = p
-            break
+        if p ~= player then
+            local role = getPlayerRole(p)
+            if role == "Murderer" then
+                murdererPlayer = p
+                break
+            end
         end
     end
     
     if murdererPlayer and murdererPlayer.Character and murdererPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = murdererPlayer.Character.HumanoidRootPart
         
+        -- Создаем BodyVelocity для полета в космос
         local bodyVel = Instance.new("BodyVelocity")
-        bodyVel.Velocity = Vector3.new(0, 1000, 0)
+        bodyVel.Velocity = Vector3.new(0, 2000, 0)
         bodyVel.MaxForce = Vector3.new(0, math.huge, 0)
         bodyVel.Parent = hrp
         
-        local trail = Instance.new("Part")
-        trail.Size = Vector3.new(1, 1, 1)
-        trail.Position = hrp.Position
-        trail.Anchored = true
-        trail.CanCollide = false
-        trail.Material = Enum.Material.Neon
-        trail.Color = Color3.fromRGB(155, 60, 255)
-        trail.Parent = workspace
-        Debris:AddItem(trail, 2)
+        -- Визуальный эффект
+        for i = 1, 10 do
+            local trail = Instance.new("Part")
+            trail.Size = Vector3.new(2, 2, 2)
+            trail.Position = hrp.Position + Vector3.new(math.random(-3, 3), math.random(-3, 3), math.random(-3, 3))
+            trail.Anchored = true
+            trail.CanCollide = false
+            trail.Material = Enum.Material.Neon
+            trail.Color = Color3.fromRGB(155, 60, 255)
+            trail.Transparency = 0.3
+            trail.Parent = workspace
+            Debris:AddItem(trail, 2)
+        end
         
-        Debris:AddItem(bodyVel, 3)
+        Debris:AddItem(bodyVel, 5)
+        print("🚀 Убийца отправлен в космос!")
+    else
+        print("⚠️ Убийца не найден!")
     end
     
     bagFull = false
     collected = 0
     counterVal.Text = "0"
     updateBagUI()
-    waitingForNextRound = true -- Ожидаем новый раунд
+    waitingForNextRound = true
     isProcessingFullBag = false
 end
 
@@ -604,6 +681,12 @@ afkBtn.MouseButton1Click:Connect(function()
     afkSet(antiAFK)
 end)
 
+espBtn.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    espSet(espEnabled)
+    updateESP()
+end)
+
 player.Idled:Connect(function()
     if antiAFK then
         VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
@@ -612,7 +695,6 @@ player.Idled:Connect(function()
     end
 end)
 
--- ВОЗВРАЩЕНА ЛОГИКА СКОРОСТИ
 speedBtn.MouseButton1Click:Connect(function()
     flySpeed = flySpeed + 5
     if flySpeed > 50 then flySpeed = 10 end
@@ -631,13 +713,24 @@ end)
 
 local function flyTo(pos, speed)
     if not rootPart or isProcessingFullBag then return end
+    
     local distance = (pos - rootPart.Position).Magnitude
     local duration = math.max(0.1, distance / speed)
     local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
     local goal = {CFrame = CFrame.new(pos)}
     local tween = TweenService:Create(rootPart, tweenInfo, goal)
+    
     tween:Play()
+    
+    -- Таймаут для предотвращения зависания
+    local timeout = task.delay(duration + 2, function()
+        if tween then
+            tween:Cancel()
+        end
+    end)
+    
     tween.Completed:Wait()
+    task.cancel(timeout)
 end
 
 resetBtn.MouseButton1Click:Connect(function()
@@ -690,16 +783,21 @@ farmBtn.MouseButton1Click:Connect(function()
                     local closest, shortest = nil, math.huge
                     for _, obj in ipairs(workspace:GetDescendants()) do
                         if obj:IsA("BasePart") and obj.Name == "Coin_Server" then
-                            local dist = (obj.Position - rootPart.Position).Magnitude
-                            if dist < shortest and dist < 250 and not visitedPositions[obj] then
-                                closest = obj
-                                shortest = dist
+                            -- Проверяем, что монета все еще существует
+                            if obj.Parent and not visitedPositions[obj] then
+                                local dist = (obj.Position - rootPart.Position).Magnitude
+                                if dist < shortest and dist < 250 then
+                                    closest = obj
+                                    shortest = dist
+                                end
                             end
                         end
                     end
                     
                     if closest and closest.Parent and closest:IsDescendantOf(workspace) then
                         flyTo(closest.Position, flySpeed)
+                        
+                        -- Проверяем, что монета все еще существует после телепортации
                         if closest and closest.Parent and closest:IsDescendantOf(workspace) then
                             visitedPositions[closest] = true
                             collected = collected + 1
@@ -719,7 +817,9 @@ farmBtn.MouseButton1Click:Connect(function()
                         end
                     else
                         -- Если монет больше нет, сбрасываем visitedPositions
-                        visitedPositions = {}
+                        if next(visitedPositions) then
+                            visitedPositions = {}
+                        end
                     end
                 end
                 task.wait(0.1)
@@ -728,6 +828,6 @@ farmBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-print("✅ [egor745top6] Coin Farm ФИНАЛЬНАЯ ВЕРСИЯ!")
-print("🎮 Кнопка скорости фарма возвращена!")
-print("🎒 После полного мешка скрипт ждет новый раунд!")
+print("✅ [egor745top6] Coin Farm с ESP готов!")
+print("🎭 ESP подсвечивает роли: 🔴Murderer 🔵Sheriff 🟢Innocent")
+print("🚀 При полном мешке мирный выкидывает убийцу в космос!")
