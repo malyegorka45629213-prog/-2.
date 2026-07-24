@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MM2 Coin Autofarm · [egor745top6] · ПОЛНОСТЬЮ ИСПРАВЛЕН
+--  MM2 Coin Autofarm · [egor745top6] · УМНЫЙ ПОДСЧЕТ
 -- ═══════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -39,59 +39,65 @@ local function setBagLimit(value)
 end
 
 -- ════════════════════════════════════════════
---  УЛУЧШЕННАЯ ПРОВЕРКА РОЛИ
+--  УЛУЧШЕННАЯ ПРОВЕРКА РОЛИ (ИСПРАВЛЕНА)
 -- ════════════════════════════════════════════
 local function getPlayerRole(p)
-    -- Пробуем разные варианты нахождения роли
-    local role = nil
+    -- Вариант 1: Проверяем Character на наличие инструментов ролей
+    if p.Character then
+        -- Ищем меч убийцы
+        if p.Character:FindFirstChild("Knife") or p.Character:FindFirstChild("MurdererSword") then
+            return "Murderer"
+        end
+        -- Ищем револьвер шерифа
+        if p.Character:FindFirstChild("Gun") or p.Character:FindFirstChild("SheriffGun") then
+            return "Sheriff"
+        end
+    end
     
-    -- Вариант 1: leaderstats.Role
+    -- Вариант 2: Проверяем Backpack
+    if p:FindFirstChild("Backpack") then
+        local backpack = p.Backpack
+        if backpack:FindFirstChild("Knife") or backpack:FindFirstChild("MurdererSword") then
+            return "Murderer"
+        end
+        if backpack:FindFirstChild("Gun") or backpack:FindFirstChild("SheriffGun") then
+            return "Sheriff"
+        end
+    end
+    
+    -- Вариант 3: leaderstats.Role
     local leaderstats = p:FindFirstChild("leaderstats")
     if leaderstats then
         local roleValue = leaderstats:FindFirstChild("Role")
-        if roleValue then
-            role = roleValue.Value
+        if roleValue and roleValue.Value then
+            return roleValue.Value
         end
     end
     
-    -- Вариант 2: player.Role (непосредственно в игроке)
-    if not role then
-        local roleValue = p:FindFirstChild("Role")
-        if roleValue then
-            role = roleValue.Value
+    -- Вариант 4: player.Role (StringValue)
+    local roleValue = p:FindFirstChild("Role")
+    if roleValue and roleValue:IsA("StringValue") then
+        return roleValue.Value
+    end
+    
+    -- Вариант 5: playerstats
+    local playerstats = p:FindFirstChild("playerstats")
+    if playerstats then
+        local roleValue = playerstats:FindFirstChild("Role")
+        if roleValue and roleValue.Value then
+            return roleValue.Value
         end
     end
     
-    -- Вариант 3: playerstats.Role
-    if not role then
-        local playerstats = p:FindFirstChild("playerstats")
-        if playerstats then
-            local roleValue = playerstats:FindFirstChild("Role")
-            if roleValue then
-                role = roleValue.Value
-            end
-        end
-    end
-    
-    -- Вариант 4: Ищем по атрибутам
-    if not role then
-        role = p:GetAttribute("Role")
-    end
-    
-    return role
+    -- Если ничего не найдено - значит Innocent
+    return "Innocent"
 end
 
 local function checkRole()
     local role = getPlayerRole(player)
-    if role then
-        isMurderer = (role == "Murderer")
-        isSheriff = (role == "Sheriff")
-        print("🎭 Твоя роль:", role)
-    else
-        isMurderer = false
-        isSheriff = false
-        print("⚠️ Роль не определена!")
-    end
+    isMurderer = (role == "Murderer")
+    isSheriff = (role == "Sheriff")
+    print("🎭 Твоя роль:", role)
 end
 
 player.CharacterAdded:Connect(function(char)
@@ -99,7 +105,7 @@ player.CharacterAdded:Connect(function(char)
     rootPart = char:WaitForChild("HumanoidRootPart")
     visitedPositions = {}
     waitingForNextRound = false
-    task.wait(1) -- Увеличил задержку для загрузки роли
+    task.wait(1.5)
     checkRole()
     updateRoleUI()
     if espEnabled then updateESP() end
@@ -588,21 +594,21 @@ local function updateESP()
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local role = getPlayerRole(p)
-            local color = Color3.fromRGB(100, 100, 100) -- Серый по умолчанию
+            local color = Color3.fromRGB(100, 100, 100)
             local roleName = "Unknown"
             
             if role == "Murderer" then
-                color = Color3.fromRGB(255, 50, 50) -- Красный
-                roleName = "Murderer"
+                color = Color3.fromRGB(255, 50, 50)
+                roleName = "Murderer 🔪"
             elseif role == "Sheriff" then
-                color = Color3.fromRGB(50, 150, 255) -- Синий
-                roleName = "Sheriff"
+                color = Color3.fromRGB(50, 150, 255)
+                roleName = "Sheriff ⭐"
             elseif role == "Innocent" then
-                color = Color3.fromRGB(50, 255, 50) -- Зеленый
-                roleName = "Innocent"
+                color = Color3.fromRGB(50, 255, 50)
+                roleName = "Innocent 👤"
             end
             
-            print("🎭 Игрок", p.Name, "- Роль:", roleName)
+            print("🎭", p.Name, "-", roleName)
             
             local highlight = Instance.new("Highlight")
             highlight.FillColor = color
@@ -620,13 +626,13 @@ end
 -- Обновляем ESP при смене ролей
 Players.PlayerAdded:Connect(function(p)
     p.CharacterAdded:Connect(function()
-        task.wait(1.5) -- Увеличил задержку
+        task.wait(1.5)
         if espEnabled then updateESP() end
     end)
 end)
 
 -- ════════════════════════════════════════════
---  МЕХАНИКА ПОЛНОГО МЕШКА (ИСПРАВЛЕНА)
+--  МЕХАНИКА ПОЛНОГО МЕШКА
 -- ════════════════════════════════════════════
 
 local function cinematicMurdererKill()
@@ -671,7 +677,6 @@ local function throwMurdererToSpace()
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player then
             local role = getPlayerRole(p)
-            print("🔍 Проверяем игрока:", p.Name, "- Роль:", role)
             if role == "Murderer" then
                 murdererPlayer = p
                 print("✅ Найден убийца:", p.Name)
@@ -683,13 +688,11 @@ local function throwMurdererToSpace()
     if murdererPlayer and murdererPlayer.Character and murdererPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = murdererPlayer.Character.HumanoidRootPart
         
-        -- Создаем BodyVelocity для полета в космос
         local bodyVel = Instance.new("BodyVelocity")
         bodyVel.Velocity = Vector3.new(0, 2000, 0)
         bodyVel.MaxForce = Vector3.new(0, math.huge, 0)
         bodyVel.Parent = hrp
         
-        -- Визуальный эффект
         for i = 1, 10 do
             local trail = Instance.new("Part")
             trail.Size = Vector3.new(2, 2, 2)
@@ -718,7 +721,7 @@ local function throwMurdererToSpace()
 end
 
 -- ════════════════════════════════════════════
---  ОСНОВНАЯ ЛОГИКА (ИСПРАВЛЕНА)
+--  ОСНОВНАЯ ЛОГИКА (УМНЫЙ ПОДСЧЕТ)
 -- ════════════════════════════════════════════
 
 afkBtn.MouseButton1Click:Connect(function()
@@ -756,18 +759,21 @@ RunService.Stepped:Connect(function()
     end
 end)
 
-local function flyTo(pos, speed)
-    if not rootPart or isProcessingFullBag then return end
+-- УМНАЯ ФУНКЦИЯ ПОЛЕТА С ПРОВЕРКОЙ
+local function flyToAndCollect(coin, speed)
+    if not rootPart or isProcessingFullBag then return false end
+    if not coin or not coin.Parent then return false end
     
-    local distance = (pos - rootPart.Position).Magnitude
+    local startPos = coin.Position
+    local distance = (startPos - rootPart.Position).Magnitude
     local duration = math.max(0.1, distance / speed)
     local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
-    local goal = {CFrame = CFrame.new(pos)}
+    local goal = {CFrame = CFrame.new(startPos)}
     local tween = TweenService:Create(rootPart, tweenInfo, goal)
     
     tween:Play()
     
-    -- Таймаут для предотвращения зависания
+    -- Таймаут
     local timeout = task.delay(duration + 2, function()
         if tween then
             tween:Cancel()
@@ -776,6 +782,18 @@ local function flyTo(pos, speed)
     
     tween.Completed:Wait()
     task.cancel(timeout)
+    
+    -- УМНАЯ ПРОВЕРКА: монета все еще существует?
+    task.wait(0.3) -- Даем время для сбора
+    
+    if coin.Parent and coin:IsDescendantOf(workspace) then
+        -- Монета все еще на месте - значит мы её не собрали
+        print("⚠️ Монета не собралась, пропускаем")
+        return false
+    else
+        -- Монета исчезла - значит мы её собрали
+        return true
+    end
 end
 
 resetBtn.MouseButton1Click:Connect(function()
@@ -828,7 +846,6 @@ farmBtn.MouseButton1Click:Connect(function()
                     local closest, shortest = nil, math.huge
                     for _, obj in ipairs(workspace:GetDescendants()) do
                         if obj:IsA("BasePart") and obj.Name == "Coin_Server" then
-                            -- Проверяем, что монета все еще существует
                             if obj.Parent and not visitedPositions[obj] then
                                 local dist = (obj.Position - rootPart.Position).Magnitude
                                 if dist < shortest and dist < 250 then
@@ -840,17 +857,15 @@ farmBtn.MouseButton1Click:Connect(function()
                     end
                     
                     if closest and closest.Parent and closest:IsDescendantOf(workspace) then
-                        flyTo(closest.Position, flySpeed)
+                        -- УМНЫЙ СБОР: проверяем, действительно ли монета собралась
+                        local success = flyToAndCollect(closest, flySpeed)
                         
-                        -- Проверяем, что монета все еще существует после телепортации
-                        if closest and closest.Parent and closest:IsDescendantOf(workspace) then
+                        if success then
                             visitedPositions[closest] = true
                             collected = collected + 1
                             counterVal.Text = tostring(collected)
-                            
                             print("🪙 Собрано монет:", collected, "/", MAX_BAG)
                             
-                            -- ИСПРАВЛЕНО: Проверяем точно >= MAX_BAG
                             if collected >= MAX_BAG and not bagFull and not isProcessingFullBag then
                                 print("🎒 Мешок полон! Активируем механику...")
                                 bagFull = true
@@ -863,11 +878,13 @@ farmBtn.MouseButton1Click:Connect(function()
                                     throwMurdererToSpace()
                                 end
                             end
+                        else
+                            -- Монета не собралась - помечаем её как посещенную
+                            visitedPositions[closest] = true
                         end
                     else
-                        -- Если монет больше нет, сбрасываем visitedPositions
                         if next(visitedPositions) then
-                            print("🔄 Сброс visitedPositions - ищем новые монеты")
+                            print("🔄 Сброс visitedPositions")
                             visitedPositions = {}
                         end
                     end
@@ -878,7 +895,7 @@ farmBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-print("✅ [egor745top6] Coin Farm ПОЛНОСТЬЮ ИСПРАВЛЕН!")
-print("🎭 ESP теперь правильно определяет роли!")
+print("✅ [egor745top6] Coin Farm с УМНЫМ ПОДСЧЕТОМ!")
+print("🎭 ESP теперь правильно определяет роли через Character/Backpack!")
+print("🪙 Умный подсчет: скрипт проверяет, действительно ли монета собралась!")
 print("🚀 Механика выкидывания мардера работает!")
-print("📊 Добавлены отладочные сообщения в консоль!")
