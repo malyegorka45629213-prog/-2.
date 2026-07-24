@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MM2 Coin Autofarm · [egor745top6] · ИСПРАВЛЕНИЕ СЧЕТЧИКА
+--  MM2 Coin Autofarm · [egor745top6] · ИСПРАВЛЕНИЕ СЧЁТЧИКА
 -- ═══════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -28,9 +28,7 @@ local espHighlights = {}
 
 local MAX_BAG = 40
 
--- ════════════════════════════════════════════
---  ЗВУКИ
--- ════════════════════════════════════════════
+-- ЗВУКИ
 local collectSound = Instance.new("Sound")
 collectSound.SoundId = "rbxassetid://12221967"
 collectSound.Volume = 1
@@ -43,9 +41,7 @@ local deathSound = Instance.new("Sound")
 deathSound.SoundId = "rbxassetid://9120392731"
 deathSound.Volume = 0.6
 
--- ════════════════════════════════════════════
---  ПРОВЕРКА РОЛИ
--- ════════════════════════════════════════════
+-- ПРОВЕРКА РОЛИ
 local function getPlayerRole(p)
     if p.Character then
         if p.Character:FindFirstChild("Knife") or p.Character:FindFirstChild("MurdererSword") then return "Murderer" end
@@ -77,9 +73,7 @@ local function checkRole()
     isSheriff = (role == "Sheriff")
 end
 
--- ════════════════════════════════════════════
---  ТЕМА
--- ════════════════════════════════════════════
+-- ТЕМА
 local COL = {
     bg = Color3.fromRGB(15, 10, 25),
     card = Color3.fromRGB(28, 18, 45),
@@ -121,9 +115,7 @@ do
     if old then old:Destroy() end
 end
 
--- ════════════════════════════════════════════
---  GUI (СОЗДАЕМ СРАЗУ)
--- ════════════════════════════════════════════
+-- GUI
 local gui = Instance.new("ScreenGui")
 gui.Name = "AutoFarmGui"
 gui.ResetOnSpawn = false
@@ -219,9 +211,7 @@ do
     l.Padding = UDim.new(0, 8)
 end
 
--- ════════════════════════════════════════════
---  КНОПКИ
--- ════════════════════════════════════════════
+-- КНОПКИ
 local function toggleCard(order, label, onToggle)
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, 0, 0, 44)
@@ -354,11 +344,235 @@ local function sectionLabel(order, text)
     l.Parent = body
 end
 
--- ════════════════════════════════════════════
---  СОЗДАНИЕ ЭЛЕМЕНТОВ (СРАЗУ!)
--- ════════════════════════════════════════════
+-- 🔥 СОЗДАЁМ ВСЕ ЭЛЕМЕНТЫ СРАЗУ (ДО КНОПОК!)
+sectionLabel(5, "STATS")
+local counterVal = statRow(6, "Coins Collected")
+local timerVal = statRow(7, "Time Active")
+local rateVal = statRow(8, "Coins / Hour")
 
--- Кнопки
+sectionLabel(9, "ROLE INFO")
+local roleVal = statRow(10, "Your Role")
+
+sectionLabel(11, "BAG STATUS")
+local bagVal = statRow(12, "Bag Full")
+
+-- ФУНКЦИИ UI
+function updateRoleUI()
+    checkRole()
+    if isMurderer then
+        roleVal.Text = "🔪 Murderer"
+        roleVal.TextColor3 = Color3.fromRGB(255, 50, 50)
+    elseif isSheriff then
+        roleVal.Text = "⭐ Sheriff"
+        roleVal.TextColor3 = Color3.fromRGB(50, 150, 255)
+    else
+        roleVal.Text = "👤 Innocent"
+        roleVal.TextColor3 = Color3.fromRGB(50, 255, 50)
+    end
+end
+
+function updateBagUI()
+    if farmStopped then
+        bagVal.Text = "🛑 STOPPED"
+        bagVal.TextColor3 = Color3.fromRGB(255, 80, 80)
+    elseif bagFull then
+        bagVal.Text = "✅ FULL"
+        bagVal.TextColor3 = Color3.fromRGB(255, 200, 0)
+    else
+        bagVal.Text = collected .. "/" .. MAX_BAG
+        bagVal.TextColor3 = Color3.fromRGB(100, 100, 100)
+    end
+end
+
+-- МЕХАНИКА ПОЛНОГО МЕШКА
+function stopFarming()
+    farmStopped = true
+    updateBagUI()
+    print("🛑 ФАРМ ОСТАНОВЛЕН!")
+end
+
+function cinematicMurdererKill()
+    print("🔪 Убийца убивает всех!")
+    killSound:Play()
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local originalCFrame = hrp.CFrame
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+            local targetHrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if targetHrp then
+                hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
+                task.wait(0.15)
+                p.Character.Humanoid.Health = 0
+            end
+        end
+    end
+    hrp.CFrame = originalCFrame
+    bagFull = false
+    collected = 0
+    counterVal.Text = "0"
+end
+
+function throwMurdererToSpace()
+    print("🚀 Ищем мардера...")
+    deathSound:Play()
+    local murdererPlayer = nil
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player then
+            local role = getPlayerRole(p)
+            if role == "Murderer" then
+                murdererPlayer = p
+                break
+            end
+        end
+    end
+    if murdererPlayer and murdererPlayer.Character and murdererPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = murdererPlayer.Character.HumanoidRootPart
+        local bodyVel = Instance.new("BodyVelocity")
+        bodyVel.Velocity = Vector3.new(0, 2000, 0)
+        bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyVel.Parent = hrp
+        for i = 1, 15 do
+            local trail = Instance.new("Part")
+            trail.Size = Vector3.new(2, 2, 2)
+            trail.Position = hrp.Position + Vector3.new(math.random(-3, 3), math.random(-3, 3), math.random(-3, 3))
+            trail.Anchored = true
+            trail.CanCollide = false
+            trail.Material = Enum.Material.Neon
+            trail.Color = Color3.fromRGB(155, 60, 255)
+            trail.Transparency = 0.3
+            trail.Parent = workspace
+            Debris:AddItem(trail, 2)
+        end
+        Debris:AddItem(bodyVel, 5)
+        print("🚀", murdererPlayer.Name, "улетел!")
+    end
+    bagFull = false
+    collected = 0
+    counterVal.Text = "0"
+end
+
+-- ФАРМ ЛОГИКА
+function flyTo(pos, speed)
+    if not rootPart or farmStopped then return false end
+    local distance = (pos - rootPart.Position).Magnitude
+    local duration = math.max(0.1, distance / speed)
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(rootPart, tweenInfo, {CFrame = CFrame.new(pos)})
+    tween:Play()
+    local cancelled = false
+    local timeout = task.delay(duration + 2, function()
+        cancelled = true
+        tween:Cancel()
+    end)
+    tween.Completed:Wait()
+    if not cancelled then task.cancel(timeout) end
+    return not cancelled
+end
+
+function startFarming()
+    collected = 0
+    startTime = tick()
+    visitedPositions = {}
+    bagFull = false
+    farmStopped = false
+    
+    counterVal.Text = "0"
+    timerVal.Text = "0s"
+    rateVal.Text = "0"
+    updateRoleUI()
+    updateBagUI()
+    
+    print("🚀 ФАРМ ЗАПУЩЕН!")
+
+    task.spawn(function()
+        while isActive do
+            local elapsed = tick() - startTime
+            timerVal.Text = math.floor(elapsed) .. "s"
+            local rate = elapsed > 0 and math.floor((collected / elapsed) * 3600) or 0
+            rateVal.Text = tostring(rate)
+            task.wait(0.1)
+        end
+    end)
+
+    task.spawn(function()
+        while isActive do
+            if farmStopped then
+                task.wait(1)
+                continue
+            end
+
+            character = player.Character or player.CharacterAdded:Wait()
+            rootPart = character:FindFirstChild("HumanoidRootPart")
+            if not rootPart then task.wait(0.5) continue end
+
+            checkRole()
+
+            local closest, shortest = nil, math.huge
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and obj.Name == "Coin_Server" then
+                    if obj.Parent and obj:IsDescendantOf(workspace) and not visitedPositions[obj] then
+                        local dist = (obj.Position - rootPart.Position).Magnitude
+                        if dist < shortest and dist < 300 then
+                            closest = obj
+                            shortest = dist
+                        end
+                    end
+                end
+            end
+
+            if closest then
+                visitedPositions[closest] = true
+                
+                if farmStopped then continue end
+                
+                local arrived = flyTo(closest.Position, flySpeed)
+
+                if farmStopped then continue end
+
+                if arrived then
+                    task.wait(0.5)
+
+                    if not closest.Parent or not closest:IsDescendantOf(workspace) then
+                        collected = collected + 1
+                        
+                        -- 🔥 ОБНОВЛЯЕМ СРАЗУ ЖЕ
+                        counterVal.Text = tostring(collected)
+                        
+                        collectSound:Play()
+                        updateBagUI()
+                        print("🪙 Собрано:", collected, "/", MAX_BAG, "| GUI:", counterVal.Text)
+
+                        if collected >= MAX_BAG and not farmStopped then
+                            print("🎒 МЕШОК ПОЛОН! Останавливаю...")
+                            bagFull = true
+                            farmStopped = true
+                            updateBagUI()
+                            checkRole()
+
+                            if isMurderer then
+                                cinematicMurdererKill()
+                            else
+                                throwMurdererToSpace()
+                            end
+                            
+                            stopFarming()
+                        end
+                    end
+                end
+            else
+                if next(visitedPositions) then
+                    visitedPositions = {}
+                end
+                task.wait(1)
+            end
+
+            task.wait(0.1)
+        end
+    end)
+end
+
+-- 🔥 ТЕПЕРЬ СОЗДАЁМ КНОПКИ (ПОСЛЕ counterVal)
 local farmToggle = toggleCard(1, "Auto Farm", function(state)
     isActive = state
     print("🎮 Auto Farm:", state and "ВКЛ" or "ВЫКЛ")
@@ -431,18 +645,6 @@ speedBtn.MouseButton1Click:Connect(function()
     if flySpeed > 50 then flySpeed = 10 end
     speedPillLbl.Text = tostring(flySpeed)
 end)
-
--- Статистика (ТЕПЕРЬ ОНИ ТОЧНО СУЩЕСТВУЮТ)
-sectionLabel(5, "STATS")
-local counterVal = statRow(6, "Coins Collected")
-local timerVal = statRow(7, "Time Active")
-local rateVal = statRow(8, "Coins / Hour")
-
-sectionLabel(9, "ROLE INFO")
-local roleVal = statRow(10, "Your Role")
-
-sectionLabel(11, "BAG STATUS")
-local bagVal = statRow(12, "Bag Full")
 
 -- Лимит
 do
@@ -552,230 +754,7 @@ menuButton.MouseButton1Click:Connect(function()
     frame.Visible = not frame.Visible
 end)
 
--- ════════════════════════════════════════════
---  ФУНКЦИИ UI
--- ════════════════════════════════════════════
-function updateRoleUI()
-    checkRole()
-    if isMurderer then
-        roleVal.Text = "🔪 Murderer"
-        roleVal.TextColor3 = Color3.fromRGB(255, 50, 50)
-    elseif isSheriff then
-        roleVal.Text = "⭐ Sheriff"
-        roleVal.TextColor3 = Color3.fromRGB(50, 150, 255)
-    else
-        roleVal.Text = "👤 Innocent"
-        roleVal.TextColor3 = Color3.fromRGB(50, 255, 50)
-    end
-end
-
-function updateBagUI()
-    if farmStopped then
-        bagVal.Text = "🛑 STOPPED"
-        bagVal.TextColor3 = Color3.fromRGB(255, 80, 80)
-    elseif bagFull then
-        bagVal.Text = "✅ FULL"
-        bagVal.TextColor3 = Color3.fromRGB(255, 200, 0)
-    else
-        bagVal.Text = collected .. "/" .. MAX_BAG
-        bagVal.TextColor3 = Color3.fromRGB(100, 100, 100)
-    end
-end
-
--- ════════════════════════════════════════════
---  МЕХАНИКА ПОЛНОГО МЕШКА
--- ════════════════════════════════════════════
-function stopFarming()
-    farmStopped = true
-    updateBagUI()
-    print("🛑 ФАРМ ОСТАНОВЛЕН!")
-end
-
-function cinematicMurdererKill()
-    print("🔪 Убийца убивает всех!")
-    killSound:Play()
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    local originalCFrame = hrp.CFrame
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            local targetHrp = p.Character:FindFirstChild("HumanoidRootPart")
-            if targetHrp then
-                hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
-                task.wait(0.15)
-                p.Character.Humanoid.Health = 0
-            end
-        end
-    end
-    hrp.CFrame = originalCFrame
-    bagFull = false
-    collected = 0
-    counterVal.Text = "0"
-end
-
-function throwMurdererToSpace()
-    print("🚀 Ищем мардера...")
-    deathSound:Play()
-    local murdererPlayer = nil
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= player then
-            local role = getPlayerRole(p)
-            if role == "Murderer" then
-                murdererPlayer = p
-                break
-            end
-        end
-    end
-    if murdererPlayer and murdererPlayer.Character and murdererPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = murdererPlayer.Character.HumanoidRootPart
-        local bodyVel = Instance.new("BodyVelocity")
-        bodyVel.Velocity = Vector3.new(0, 2000, 0)
-        bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bodyVel.Parent = hrp
-        for i = 1, 15 do
-            local trail = Instance.new("Part")
-            trail.Size = Vector3.new(2, 2, 2)
-            trail.Position = hrp.Position + Vector3.new(math.random(-3, 3), math.random(-3, 3), math.random(-3, 3))
-            trail.Anchored = true
-            trail.CanCollide = false
-            trail.Material = Enum.Material.Neon
-            trail.Color = Color3.fromRGB(155, 60, 255)
-            trail.Transparency = 0.3
-            trail.Parent = workspace
-            Debris:AddItem(trail, 2)
-        end
-        Debris:AddItem(bodyVel, 5)
-        print("🚀", murdererPlayer.Name, "улетел!")
-    end
-    bagFull = false
-    collected = 0
-    counterVal.Text = "0"
-end
-
--- ════════════════════════════════════════════
---  ФАРМ ЛОГИКА
--- ════════════════════════════════════════════
-function flyTo(pos, speed)
-    if not rootPart or farmStopped then return false end
-    local distance = (pos - rootPart.Position).Magnitude
-    local duration = math.max(0.1, distance / speed)
-    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(rootPart, tweenInfo, {CFrame = CFrame.new(pos)})
-    tween:Play()
-    local cancelled = false
-    local timeout = task.delay(duration + 2, function()
-        cancelled = true
-        tween:Cancel()
-    end)
-    tween.Completed:Wait()
-    if not cancelled then task.cancel(timeout) end
-    return not cancelled
-end
-
-function startFarming()
-    collected = 0
-    startTime = tick()
-    visitedPositions = {}
-    bagFull = false
-    farmStopped = false
-    
-    -- 🔥 ЖЕСТКОЕ ОБНОВЛЕНИЕ UI ПРИ СТАРТЕ
-    counterVal.Text = "0"
-    timerVal.Text = "0s"
-    rateVal.Text = "0"
-    updateRoleUI()
-    updateBagUI()
-
-    task.spawn(function()
-        while isActive do
-            local elapsed = tick() - startTime
-            timerVal.Text = math.floor(elapsed) .. "s"
-            local rate = elapsed > 0 and math.floor((collected / elapsed) * 3600) or 0
-            rateVal.Text = tostring(rate)
-            task.wait(0.1)
-        end
-    end)
-
-    task.spawn(function()
-        while isActive do
-            if farmStopped then
-                task.wait(1)
-                continue
-            end
-
-            character = player.Character or player.CharacterAdded:Wait()
-            rootPart = character:FindFirstChild("HumanoidRootPart")
-            if not rootPart then task.wait(0.5) continue end
-
-            checkRole()
-
-            local closest, shortest = nil, math.huge
-            for _, obj in ipairs(workspace:GetDescendants()) do
-                if obj:IsA("BasePart") and obj.Name == "Coin_Server" then
-                    if obj.Parent and obj:IsDescendantOf(workspace) and not visitedPositions[obj] then
-                        local dist = (obj.Position - rootPart.Position).Magnitude
-                        if dist < shortest and dist < 300 then
-                            closest = obj
-                            shortest = dist
-                        end
-                    end
-                end
-            end
-
-            if closest then
-                visitedPositions[closest] = true
-                
-                if farmStopped then continue end
-                
-                local arrived = flyTo(closest.Position, flySpeed)
-
-                if farmStopped then continue end
-
-                if arrived then
-                    task.wait(0.5)
-
-                    if not closest.Parent or not closest:IsDescendantOf(workspace) then
-                        collected = collected + 1
-                        
-                        -- 🔥 ОБНОВЛЯЕМ TEXTLABEL СРАЗУ ЖЕ
-                        counterVal.Text = tostring(collected)
-                        
-                        collectSound:Play()
-                        updateBagUI()
-                        print("🪙 Собрано:", collected, "/", MAX_BAG)
-
-                        if collected >= MAX_BAG and not farmStopped then
-                            print("🎒 МЕШОК ПОЛОН!")
-                            bagFull = true
-                            farmStopped = true
-                            updateBagUI()
-                            checkRole()
-
-                            if isMurderer then
-                                cinematicMurdererKill()
-                            else
-                                throwMurdererToSpace()
-                            end
-                            
-                            stopFarming()
-                        end
-                    end
-                end
-            else
-                if next(visitedPositions) then
-                    visitedPositions = {}
-                end
-                task.wait(1)
-            end
-
-            task.wait(0.1)
-        end
-    end)
-end
-
--- ════════════════════════════════════════════
---  ESP
--- ════════════════════════════════════════════
+-- ESP
 function updateESP()
     for _, highlight in pairs(espHighlights) do
         if highlight then highlight:Destroy() end
@@ -809,9 +788,7 @@ task.spawn(function()
     end
 end)
 
--- ════════════════════════════════════════════
---  СИСТЕМНЫЕ СОБЫТИЯ
--- ════════════════════════════════════════════
+-- СИСТЕМНЫЕ СОБЫТИЯ
 player.CharacterAdded:Connect(function(char)
     character = char
     rootPart = char:WaitForChild("HumanoidRootPart")
@@ -842,4 +819,5 @@ updateRoleUI()
 updateBagUI()
 
 print("✅ [egor745top6] Coin Farm ГОТОВ!")
-print("🔢 Счетчик теперь работает корректно!")
+print("🔢 Счётчик теперь обновляется СРАЗУ!")
+print("🛑 Фарм останавливается при полном мешке!")
