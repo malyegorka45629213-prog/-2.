@@ -154,7 +154,6 @@ frame.Parent = gui
 corner(frame, 14)
 stroke(frame, COL.border, 1.5)
 
--- Верхняя панель
 local titleBar = Instance.new("Frame")
 titleBar.Size = UDim2.new(1, 0, 0, 42)
 titleBar.BackgroundTransparency = 1
@@ -186,7 +185,6 @@ titleLbl.TextXAlignment = Enum.TextXAlignment.Left
 titleLbl.ZIndex = 2
 titleLbl.Parent = titleBar
 
--- Перетаскивание
 do
     local dragging, dragStart, startPos = false, nil, nil
     titleBar.InputBegan:Connect(function(i)
@@ -206,7 +204,6 @@ do
     end)
 end
 
--- Scrolling Frame
 local body = Instance.new("ScrollingFrame")
 body.Size = UDim2.new(1, 0, 1, -42)
 body.Position = UDim2.new(0, 0, 0, 42)
@@ -232,7 +229,7 @@ do
 end
 
 -- ════════════════════════════════════════════
---  🔥 ПРАВИЛЬНАЯ КНОПКА (ОДИН ОБРАБОТЧИК)
+--  🔥 ПРАВИЛЬНАЯ КНОПКА
 -- ════════════════════════════════════════════
 local function toggleCard(order, label, onToggle)
     local card = Instance.new("Frame")
@@ -304,27 +301,17 @@ local function toggleCard(order, label, onToggle)
         end
     end
 
-    -- 🔥 ОДИН ОБРАБОТЧИК: и визуал, и логика
     btn.MouseButton1Click:Connect(function()
         currentState = not currentState
         updateVisual()
-        if onToggle then
-            onToggle(currentState)
-        end
+        if onToggle then onToggle(currentState) end
     end)
 
-    btn.MouseEnter:Connect(function() 
-        if not currentState then tw(card, {BackgroundColor3 = COL.cardHov}) end 
-    end)
-    btn.MouseLeave:Connect(function() 
-        if not currentState then tw(card, {BackgroundColor3 = COL.card}) end 
-    end)
+    btn.MouseEnter:Connect(function() if not currentState then tw(card, {BackgroundColor3 = COL.cardHov}) end end)
+    btn.MouseLeave:Connect(function() if not currentState then tw(card, {BackgroundColor3 = COL.card}) end end)
 
     return {
-        setState = function(v)
-            currentState = v
-            updateVisual()
-        end,
+        setState = function(v) currentState = v updateVisual() end,
         getState = function() return currentState end
     }
 end
@@ -377,7 +364,7 @@ local function sectionLabel(order, text)
 end
 
 -- ════════════════════════════════════════════
---  UI ФУНКЦИИ (объявлены заранее)
+--  UI ФУНКЦИИ
 -- ════════════════════════════════════════════
 local counterVal, timerVal, rateVal, roleVal, bagVal
 
@@ -411,24 +398,20 @@ function updateBagUI()
 end
 
 -- ════════════════════════════════════════════
---  МЕХАНИКА ПОЛНОГО МЕШКА
+--  🔥 МЕХАНИКА ПОЛНОГО МЕШКА (ИСПРАВЛЕНО)
 -- ════════════════════════════════════════════
 function stopFarming()
     farmStopped = true
-    visitedPositions = {}
     updateBagUI()
     print("🛑 ФАРМ ОСТАНОВЛЕН! Нажми Reset & Resume")
 end
 
 function cinematicMurdererKill()
-    if isProcessingFullBag then return end
-    isProcessingFullBag = true
-
     print("🔪 Убийца убивает всех!")
     killSound:Play()
 
     local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then isProcessingFullBag = false stopFarming() return end
+    if not hrp then return end
 
     local originalCFrame = hrp.CFrame
 
@@ -448,14 +431,9 @@ function cinematicMurdererKill()
     bagFull = false
     collected = 0
     if counterVal then counterVal.Text = "0" end
-    isProcessingFullBag = false
-    stopFarming()
 end
 
 function throwMurdererToSpace()
-    if isProcessingFullBag then return end
-    isProcessingFullBag = true
-
     print("🚀 Ищем мардера...")
     deathSound:Play()
 
@@ -500,15 +478,14 @@ function throwMurdererToSpace()
     bagFull = false
     collected = 0
     if counterVal then counterVal.Text = "0" end
-    isProcessingFullBag = false
-    stopFarming()
 end
 
 -- ════════════════════════════════════════════
 --  ФАРМ ЛОГИКА
 -- ════════════════════════════════════════════
 function flyTo(pos, speed)
-    if not rootPart or isProcessingFullBag or farmStopped then return false end
+    -- 🔥 ПРОВЕРКА В НАЧАЛЕ
+    if not rootPart or farmStopped then return false end
 
     local distance = (pos - rootPart.Position).Magnitude
     local duration = math.max(0.1, distance / speed)
@@ -552,7 +529,8 @@ function startFarming()
 
     task.spawn(function()
         while isActive do
-            if farmStopped or isProcessingFullBag then
+            -- 🔥 ПРОВЕРКА В САМОМ НАЧАЛЕ ИТЕРАЦИИ
+            if farmStopped then
                 task.wait(1)
                 continue
             end
@@ -578,9 +556,14 @@ function startFarming()
 
             if closest then
                 visitedPositions[closest] = true
+                
+                -- 🔥 ПРОВЕРКА ПЕРЕД ПОЛЕТОМ
+                if farmStopped then continue end
+                
                 local arrived = flyTo(closest.Position, flySpeed)
 
-                if farmStopped or isProcessingFullBag then continue end
+                -- 🔥 ПРОВЕРКА ПОСЛЕ ПОЛЕТА
+                if farmStopped then continue end
 
                 if arrived then
                     task.wait(0.5)
@@ -592,9 +575,11 @@ function startFarming()
                         updateBagUI()
                         print("🪙", collected, "/", MAX_BAG)
 
-                        if collected >= MAX_BAG and not isProcessingFullBag and not farmStopped then
-                            print("🎒 МЕШОК ПОЛОН!")
+                        -- 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ: СРАЗУ устанавливаем farmStopped
+                        if collected >= MAX_BAG and not farmStopped then
+                            print("🎒 МЕШОК ПОЛОН! Останавливаю фарм...")
                             bagFull = true
+                            farmStopped = true  -- 🔥 СРАЗУ!
                             updateBagUI()
                             checkRole()
 
@@ -603,6 +588,9 @@ function startFarming()
                             else
                                 throwMurdererToSpace()
                             end
+                            
+                            -- 🔥 ГАРАНТИРОВАННАЯ остановка
+                            stopFarming()
                         end
                     end
                 end
@@ -619,32 +607,26 @@ function startFarming()
 end
 
 -- ════════════════════════════════════════════
---  СОЗДАНИЕ КНОПОК (С ПРАВИЛЬНЫМ CALLBACK)
+--  СОЗДАНИЕ КНОПОК
 -- ════════════════════════════════════════════
-
--- 🔥 AUTO FARM
 local farmToggle = toggleCard(1, "Auto Farm", function(state)
     isActive = state
     print("🎮 Auto Farm:", state and "ВКЛ" or "ВЫКЛ")
-    if state then
-        startFarming()
-    end
+    if state then startFarming() end
 end)
 
--- 🔥 ANTI-AFK
 local afkToggle = toggleCard(2, "Anti-AFK", function(state)
     antiAFK = state
     print("🛡️ Anti-AFK:", state and "ВКЛ" or "ВЫКЛ")
 end)
 
--- 🔥 ESP
 local espToggle = toggleCard(3, "ESP Roles", function(state)
     espEnabled = state
     print("👁️ ESP:", state and "ВКЛ" or "ВЫКЛ")
     updateESP()
 end)
 
--- КНОПКА СКОРОСТИ
+-- Скорость
 local speedCard = Instance.new("Frame")
 speedCard.Size = UDim2.new(1, 0, 0, 44)
 speedCard.BackgroundColor3 = COL.card
@@ -702,7 +684,6 @@ speedBtn.MouseButton1Click:Connect(function()
     print("⚡ Скорость:", flySpeed)
 end)
 
--- STATS
 sectionLabel(5, "STATS")
 counterVal = statRow(6, "Coins Collected")
 timerVal = statRow(7, "Time Active")
@@ -714,7 +695,7 @@ roleVal = statRow(10, "Your Role")
 sectionLabel(11, "BAG STATUS")
 bagVal = statRow(12, "Bag Full")
 
--- КНОПКА ЛИМИТА
+-- Лимит
 do
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, 0, 0, 44)
@@ -775,7 +756,7 @@ do
     end)
 end
 
--- RESET
+-- Reset
 do
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 38)
@@ -865,9 +846,7 @@ end
 
 task.spawn(function()
     while true do
-        if espEnabled then
-            updateESP()
-        end
+        if espEnabled then updateESP() end
         task.wait(2)
     end
 end)
@@ -894,7 +873,7 @@ player.Idled:Connect(function()
 end)
 
 RunService.Stepped:Connect(function()
-    if isActive and character and not isProcessingFullBag and not farmStopped then
+    if isActive and character and not farmStopped then
         for _, v in ipairs(character:GetDescendants()) do
             if v:IsA("BasePart") then v.CanCollide = false end
         end
@@ -902,10 +881,5 @@ RunService.Stepped:Connect(function()
 end)
 
 print("✅ [egor745top6] Coin Farm ГОТОВ!")
-print("🎮 ВСЕ кнопки работают (Auto Farm, Anti-AFK, ESP)")
-print("⚡ Кнопка скорости")
-print("📦 Кнопка лимита 40/50")
-print("🔄 Reset & Resume")
-print("👁️ ESP автообновляется каждые 2 сек")
-print("🔊 Звуки включены")
-print("🛑 После полного мешка фарм ОСТАНАВЛИВАЕТСЯ")
+print("🛑 Теперь фарм ТОЧНО останавливается при полном мешке!")
+print("🔥 farmStopped устанавливается СРАЗУ при достижении лимита")
