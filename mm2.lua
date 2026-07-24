@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MM2 Coin Autofarm · [egor745top6] · ФИНАЛЬНАЯ ВЕРСИЯ
+--  MM2 Coin Autofarm · [egor745top6] · ПОЛНЫЙ СКРИПТ
 -- ═══════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -389,22 +389,25 @@ function stopFarming()
     print("🛑 ФАРМ ОСТАНОВЛЕН!")
 end
 
--- 🔪 УБИЙЦА УБИВАЕТ ВСЕХ (БЫСТРО)
+-- 🔪 УБИЙЦА УБИВАЕТ ВСЕХ
 function cinematicMurdererKill()
-    print("🔪 Убийца убивает всех!")
+    print("🔪 === УБИЙЦА УБИВАЕТ ВСЕХ ===")
     killSound:Play()
     
     local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+    if not hrp then 
+        print("❌ Нет HumanoidRootPart!")
+        return 
+    end
     
-    -- 🔥 Создаём нож
+    -- Нож
     local knife = Instance.new("Tool")
     knife.Name = "MurdererKnife"
     knife.TextureId = "rbxassetid://189130411"
     knife.GripPos = Vector3.new(0, -0.5, 0)
     knife.Parent = character
     
-    -- 🔥 Красная вспышка
+    -- Красная вспышка
     local flash = Instance.new("Part")
     flash.Size = Vector3.new(30, 30, 30)
     flash.Position = hrp.Position
@@ -424,7 +427,6 @@ function cinematicMurdererKill()
     
     task.wait(0.3)
     
-    -- 🔥 Быстрая телепортация к каждому
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
             local targetHrp = p.Character:FindFirstChild("HumanoidRootPart")
@@ -432,7 +434,6 @@ function cinematicMurdererKill()
                 hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
                 task.wait(0.08)
                 
-                -- Эффект удара
                 local hitEffect = Instance.new("Part")
                 hitEffect.Size = Vector3.new(2, 2, 2)
                 hitEffect.Position = targetHrp.Position
@@ -457,105 +458,173 @@ function cinematicMurdererKill()
     bagFull = false
     collected = 0
     counterVal.Text = "0"
+    print("🔪 === КОНЕЦ УБИЙСТВА ===")
 end
 
--- 🚀 ВЫБРОС МАРДЕРА В КОСМОС (КАК В ЧИТАХ - МГНОВЕННО)
+-- 🚀 ВЫБРОС МАРДЕРА В КОСМОС (С ОТЛАДКОЙ)
 function throwMurdererToSpace()
-    print("🚀 Выброс мардера в космос!")
+    print("🚀 === НАЧАЛО ВЫБРОСА МАРДЕРА ===")
     deathSound:Play()
     
     local murdererPlayer = nil
+    print("🔍 Ищем мардера среди", #Players:GetPlayers(), "игроков...")
+    
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player then
             local role = getPlayerRole(p)
+            print("  Игрок:", p.Name, "→ Роль:", role)
             if role == "Murderer" then
                 murdererPlayer = p
+                print("  ✅ НАЙДЕН МАРДЕР:", p.Name)
                 break
             end
         end
     end
     
-    if murdererPlayer and murdererPlayer.Character and murdererPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local murdererHrp = murdererPlayer.Character.HumanoidRootPart
-        local murdererHum = murdererPlayer.Character:FindFirstChild("Humanoid")
+    if murdererPlayer then
+        print("🎯 Мардер найден:", murdererPlayer.Name)
         
-        -- 🔥 МГНОВЕННЫЙ ВЫБРОС (как в читах)
-        
-        -- 1. Отключаем управление мардеру
-        if murdererHum then
-            murdererHum.PlatformStand = true
-        end
-        
-        -- 2. Мгновенно телепортируем мардера высоко в небо
-        local spacePosition = murdererHrp.Position + Vector3.new(0, 5000, 0)
-        murdererHrp.CFrame = CFrame.new(spacePosition)
-        
-        -- 3. Добавляем BodyVelocity чтобы он продолжал лететь
-        local bodyVel = Instance.new("BodyVelocity")
-        bodyVel.Velocity = Vector3.new(0, 10000, 0)
-        bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bodyVel.Parent = murdererHrp
-        Debris:AddItem(bodyVel, 10)
-        
-        -- 4. Добавляем BodyAngularVelocity для вращения
-        local bodyAng = Instance.new("BodyAngularVelocity")
-        bodyAng.AngularVelocity = Vector3.new(50, 50, 50)
-        bodyAng.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-        bodyAng.Parent = murdererHrp
-        Debris:AddItem(bodyAng, 10)
-        
-        -- 5. Отключаем коллизии
-        for _, part in ipairs(murdererPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
+        if murdererPlayer.Character and murdererPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local murdererHrp = murdererPlayer.Character.HumanoidRootPart
+            local murdererHum = murdererPlayer.Character:FindFirstChild("Humanoid")
+            
+            -- 1. Отключаем управление мардеру
+            if murdererHum then
+                murdererHum.PlatformStand = true
+                print("  ✅ PlatformStand установлен")
             end
-        end
-        
-        -- 6. Визуальный эффект (фиолетовый след)
-        task.spawn(function()
-            for i = 1, 30 do
-                task.wait(0.1)
-                if murdererHrp.Parent then
-                    local trail = Instance.new("Part")
-                    trail.Size = Vector3.new(2, 2, 2)
-                    trail.Position = murdererHrp.Position
-                    trail.Anchored = true
-                    trail.CanCollide = false
-                    trail.Material = Enum.Material.Neon
-                    trail.Color = Color3.fromRGB(155, 60, 255)
-                    trail.Transparency = 0.3
-                    trail.Parent = workspace
-                    Debris:AddItem(trail, 1.5)
+            
+            -- 2. Мгновенно телепортируем мардера высоко в небо
+            local spacePosition = murdererHrp.Position + Vector3.new(0, 5000, 0)
+            murdererHrp.CFrame = CFrame.new(spacePosition)
+            print("  ✅ Телепортирован на высоту 5000")
+            
+            -- 3. Добавляем BodyVelocity
+            local bodyVel = Instance.new("BodyVelocity")
+            bodyVel.Velocity = Vector3.new(0, 10000, 0)
+            bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bodyVel.Parent = murdererHrp
+            Debris:AddItem(bodyVel, 10)
+            print("  ✅ BodyVelocity добавлен")
+            
+            -- 4. Добавляем BodyAngularVelocity для вращения
+            local bodyAng = Instance.new("BodyAngularVelocity")
+            bodyAng.AngularVelocity = Vector3.new(50, 50, 50)
+            bodyAng.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            bodyAng.Parent = murdererHrp
+            Debris:AddItem(bodyAng, 10)
+            print("  ✅ BodyAngularVelocity добавлен")
+            
+            -- 5. Отключаем коллизии
+            for _, part in ipairs(murdererPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
                 end
             end
-        end)
-        
-        -- 7. Фиолетовая вспышка на месте
-        local flash = Instance.new("Part")
-        flash.Size = Vector3.new(15, 15, 15)
-        flash.Position = murdererHrp.Position - Vector3.new(0, 5000, 0)
-        flash.Anchored = true
-        flash.CanCollide = false
-        flash.Material = Enum.Material.Neon
-        flash.Color = Color3.fromRGB(155, 60, 255)
-        flash.Transparency = 0.5
-        flash.Parent = workspace
-        Debris:AddItem(flash, 2)
-        
-        local light = Instance.new("PointLight")
-        light.Brightness = 15
-        light.Range = 40
-        light.Color = Color3.fromRGB(155, 60, 255)
-        light.Parent = flash
-        
-        print("🚀", murdererPlayer.Name, "улетел в космос!")
+            print("  ✅ Коллизии отключены")
+            
+            -- 6. Визуальный эффект (фиолетовый след)
+            task.spawn(function()
+                for i = 1, 30 do
+                    task.wait(0.1)
+                    if murdererHrp.Parent then
+                        local trail = Instance.new("Part")
+                        trail.Size = Vector3.new(2, 2, 2)
+                        trail.Position = murdererHrp.Position
+                        trail.Anchored = true
+                        trail.CanCollide = false
+                        trail.Material = Enum.Material.Neon
+                        trail.Color = Color3.fromRGB(155, 60, 255)
+                        trail.Transparency = 0.3
+                        trail.Parent = workspace
+                        Debris:AddItem(trail, 1.5)
+                    end
+                end
+            end)
+            print("  ✅ Визуальный эффект запущен")
+            
+            -- 7. Фиолетовая вспышка
+            local flash = Instance.new("Part")
+            flash.Size = Vector3.new(15, 15, 15)
+            flash.Position = murdererHrp.Position - Vector3.new(0, 5000, 0)
+            flash.Anchored = true
+            flash.CanCollide = false
+            flash.Material = Enum.Material.Neon
+            flash.Color = Color3.fromRGB(155, 60, 255)
+            flash.Transparency = 0.5
+            flash.Parent = workspace
+            Debris:AddItem(flash, 2)
+            
+            local light = Instance.new("PointLight")
+            light.Brightness = 15
+            light.Range = 40
+            light.Color = Color3.fromRGB(155, 60, 255)
+            light.Parent = flash
+            print("  ✅ Вспышка создана")
+            
+            print("🚀", murdererPlayer.Name, "улетел в космос!")
+        else
+            print("❌ У мардера нет HumanoidRootPart!")
+        end
     else
-        print("⚠️ Мардер не найден!")
+        print("❌ МАРДЕР НЕ НАЙДЕН!")
+        print("💡 Возможно, роль определяется иначе. Попробую альтернативный поиск...")
+        
+        -- Альтернативный поиск через leaderstats
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player then
+                local ls = p:FindFirstChild("leaderstats")
+                if ls then
+                    for _, v in ipairs(ls:GetChildren()) do
+                        if v.Value == "Murderer" or v.Value == "murderer" or v.Value == "MURDERER" then
+                            murdererPlayer = p
+                            print("✅ НАЙДЕН через leaderstats:", p.Name)
+                            break
+                        end
+                    end
+                end
+                if murdererPlayer then break end
+            end
+        end
+        
+        if murdererPlayer and murdererPlayer.Character and murdererPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local murdererHrp = murdererPlayer.Character.HumanoidRootPart
+            local murdererHum = murdererPlayer.Character:FindFirstChild("Humanoid")
+            
+            if murdererHum then murdererHum.PlatformStand = true end
+            
+            local spacePosition = murdererHrp.Position + Vector3.new(0, 5000, 0)
+            murdererHrp.CFrame = CFrame.new(spacePosition)
+            
+            local bodyVel = Instance.new("BodyVelocity")
+            bodyVel.Velocity = Vector3.new(0, 10000, 0)
+            bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bodyVel.Parent = murdererHrp
+            Debris:AddItem(bodyVel, 10)
+            
+            local bodyAng = Instance.new("BodyAngularVelocity")
+            bodyAng.AngularVelocity = Vector3.new(50, 50, 50)
+            bodyAng.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            bodyAng.Parent = murdererHrp
+            Debris:AddItem(bodyAng, 10)
+            
+            for _, part in ipairs(murdererPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+            
+            print("🚀", murdererPlayer.Name, "улетел в космос (альтернативный поиск)!")
+        else
+            print("❌ МАРДЕР ТАК И НЕ НАЙДЕН!")
+        end
     end
     
+    print("🔄 Сбрасываем счётчик...")
     bagFull = false
     collected = 0
     counterVal.Text = "0"
+    print("🚀 === КОНЕЦ ВЫБРОСА МАРДЕРА ===")
 end
 
 function flyTo(pos, speed)
@@ -648,20 +717,31 @@ function startFarming()
                             updateBagUI()
                             print("✅ Собрано:", collected, "/", MAX_BAG)
                             
+                            -- 🔥 ПРОВЕРКА ПОЛНОГО МЕШКА С ОТЛАДКОЙ
                             if collected >= MAX_BAG and not farmStopped then
-                                print("🎒 МЕШОК ПОЛОН!")
+                                print("🎒 === МЕШОК ПОЛОН! ===")
+                                print("  Собрано:", collected, "/", MAX_BAG)
+                                print("  farmStopped:", farmStopped)
+                                
                                 bagFull = true
                                 farmStopped = true
                                 updateBagUI()
                                 checkRole()
+                                
+                                print("  isMurderer:", isMurderer)
+                                print("  isSheriff:", isSheriff)
 
                                 if isMurderer then
+                                    print("🔪 Вызываем cinematicMurdererKill()...")
                                     cinematicMurdererKill()
                                 else
+                                    print("🚀 Вызываем throwMurdererToSpace()...")
                                     throwMurdererToSpace()
                                 end
                                 
+                                print("🛑 Вызываем stopFarming()...")
                                 stopFarming()
+                                print("🎒 === КОНЕЦ ОБРАБОТКИ ПОЛНОГО МЕШКА ===")
                             end
                         else
                             print("⚠️ Монета существует, но мы далеко — пропускаем")
@@ -929,5 +1009,4 @@ updateRoleUI()
 updateBagUI()
 
 print("✅ [egor745top6] Coin Farm ГОТОВ!")
-print("🚀 Мардер вылетает МГНОВЕННО как в читах!")
-print("🔪 Убийца быстро убивает всех!")
+print("🔍 Открой консоль (F9) чтобы видеть отладку!")
