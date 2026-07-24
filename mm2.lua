@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MM2 Coin Autofarm · [egor745top6] · ИСПРАВЛЕННАЯ ВЕРСИЯ
+--  MM2 Coin Autofarm · [egor745top6] · ФИНАЛЬНАЯ ВЕРСИЯ
 -- ═══════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -23,6 +23,7 @@ local isMurderer = false
 local isSheriff = false
 local bagFull = false
 local isProcessingFullBag = false
+local waitingForNextRound = false -- НОВОЕ: ожидание нового раунда
 
 -- ════════════════════════════════════════════
 --  ЛИМИТ МЕШКА
@@ -35,7 +36,7 @@ local function setBagLimit(value)
     print("📦 Лимит мешка изменён на:", MAX_BAG)
 end
 
--- ПРОВЕРКА РОЛИ (ИСПРАВЛЕНО)
+-- ПРОВЕРКА РОЛИ
 local function checkRole()
     local leaderstats = player:FindFirstChild("leaderstats")
     if leaderstats then
@@ -52,6 +53,7 @@ player.CharacterAdded:Connect(function(char)
     character = char
     rootPart = char:WaitForChild("HumanoidRootPart")
     visitedPositions = {}
+    waitingForNextRound = false -- Сброс при респавне
     task.wait(0.5)
     checkRole()
     updateRoleUI()
@@ -153,7 +155,7 @@ titleLbl.TextXAlignment = Enum.TextXAlignment.Left
 titleLbl.ZIndex = 2
 titleLbl.Parent = titleBar
 
--- ПЕРЕДЕЛАНО НА SCROLLING FRAME ДЛЯ ПРОКРУТКИ
+-- SCROLLING FRAME
 local body = Instance.new("ScrollingFrame")
 body.Size = UDim2.new(1, 0, 1, -42)
 body.Position = UDim2.new(0, 0, 0, 42)
@@ -162,7 +164,7 @@ body.BorderSizePixel = 0
 body.ScrollBarThickness = 4
 body.ScrollBarImageColor3 = ACCENT.base
 body.CanvasSize = UDim2.new(0, 0, 0, 0)
-body.AutomaticCanvasSize = Enum.AutomaticSize.Y -- Автоматическая прокрутка!
+body.AutomaticCanvasSize = Enum.AutomaticSize.Y
 body.ScrollingEnabled = true
 body.ZIndex = 2
 body.Parent = frame
@@ -327,7 +329,7 @@ local function sectionLabel(order, text)
     return l
 end
 
--- КНОПКА ЛИМИТА (ИСПРАВЛЕНА)
+-- КНОПКА ЛИМИТА
 local function limitButton(order)
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, 0, 0, 44)
@@ -397,19 +399,72 @@ end
 local farmBtn, farmSet = toggleCard(1, "Auto Farm")
 local afkBtn, afkSet = toggleCard(2, "Anti-AFK")
 
+-- ВОЗВРАЩЕНА КНОПКА СКОРОСТИ
+local speedCard = Instance.new("Frame")
+speedCard.Size = UDim2.new(1, 0, 0, 44)
+speedCard.BackgroundColor3 = COL.card
+speedCard.BorderSizePixel = 0
+speedCard.LayoutOrder = 3
+speedCard.ZIndex = 2
+speedCard.Parent = body
+corner(speedCard, 10)
+stroke(speedCard, COL.border, 1)
+do
+    local t = Instance.new("TextLabel")
+    t.Size = UDim2.new(1, -90, 1, 0)
+    t.Position = UDim2.new(0, 14, 0, 0)
+    t.BackgroundTransparency = 1
+    t.Text = "Farm Speed"
+    t.TextColor3 = COL.text
+    t.Font = Enum.Font.GothamSemibold
+    t.TextSize = 14
+    t.TextXAlignment = Enum.TextXAlignment.Left
+    t.ZIndex = 2
+    t.Parent = speedCard
+end
+
+local speedPillLbl
+do
+    local pill = Instance.new("Frame")
+    pill.Size = UDim2.new(0, 52, 0, 24)
+    pill.Position = UDim2.new(1, -66, 0.5, -12)
+    pill.BackgroundColor3 = ACCENT.dim
+    pill.BorderSizePixel = 0
+    pill.ZIndex = 2
+    pill.Parent = speedCard
+    corner(pill, 12)
+    stroke(pill, ACCENT.base, 1)
+    speedPillLbl = Instance.new("TextLabel")
+    speedPillLbl.Size = UDim2.new(1, 0, 1, 0)
+    speedPillLbl.BackgroundTransparency = 1
+    speedPillLbl.Text = tostring(flySpeed)
+    speedPillLbl.TextColor3 = ACCENT.light
+    speedPillLbl.Font = Enum.Font.GothamBold
+    speedPillLbl.TextSize = 12
+    speedPillLbl.ZIndex = 2
+    speedPillLbl.Parent = pill
+end
+
+local speedBtn = Instance.new("TextButton")
+speedBtn.Size = UDim2.new(1, 0, 1, 0)
+speedBtn.BackgroundTransparency = 1
+speedBtn.Text = ""
+speedBtn.ZIndex = 3
+speedBtn.Parent = speedCard
+
 -- Статистика
-sectionLabel(3, "STATS")
-local counterVal = statRow(4, "Coins Collected")
-local timerVal = statRow(5, "Time Active")
-local rateVal = statRow(6, "Coins / Hour")
+sectionLabel(4, "STATS")
+local counterVal = statRow(5, "Coins Collected")
+local timerVal = statRow(6, "Time Active")
+local rateVal = statRow(7, "Coins / Hour")
 
-sectionLabel(7, "ROLE INFO")
-local roleVal = statRow(8, "Your Role")
+sectionLabel(8, "ROLE INFO")
+local roleVal = statRow(9, "Your Role")
 
-sectionLabel(9, "BAG STATUS")
-local bagVal = statRow(10, "Bag Full")
+sectionLabel(10, "BAG STATUS")
+local bagVal = statRow(11, "Bag Full")
 
-limitButton(11)
+limitButton(12)
 
 -- Кнопка сброса
 local resetBtn = Instance.new("TextButton")
@@ -420,7 +475,7 @@ resetBtn.TextColor3 = COL.text
 resetBtn.Font = Enum.Font.GothamBold
 resetBtn.TextSize = 13
 resetBtn.AutoButtonColor = false
-resetBtn.LayoutOrder = 12
+resetBtn.LayoutOrder = 13
 resetBtn.ZIndex = 2
 resetBtn.Parent = body
 corner(resetBtn, 10)
@@ -468,10 +523,9 @@ menuButton.MouseButton1Click:Connect(function()
 end)
 
 -- ════════════════════════════════════════════
---  МЕХАНИКА ПОЛНОГО МЕШКА (ПЕРЕРАБОТАНА)
+--  МЕХАНИКА ПОЛНОГО МЕШКА
 -- ════════════════════════════════════════════
 
--- Убийца убивает всех
 local function cinematicMurdererKill()
     if isProcessingFullBag then return end
     isProcessingFullBag = true
@@ -484,30 +538,26 @@ local function cinematicMurdererKill()
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
             local targetHrp = p.Character.HumanoidRootPart
-            -- Телепортация за спину жертвы
             hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
             task.wait(0.15)
-            -- Мгновенное убийство
             p.Character.Humanoid.Health = 0
         end
     end
     
-    -- Возврат на исходную позицию
     hrp.CFrame = originalCFrame
     bagFull = false
     collected = 0
     counterVal.Text = "0"
     updateBagUI()
+    waitingForNextRound = true -- Ожидаем новый раунд
     isProcessingFullBag = false
 end
 
--- Мирный выкидывает Убийцу в космос
 local function throwMurdererToSpace()
     if isProcessingFullBag then return end
     isProcessingFullBag = true
     
     local murdererPlayer = nil
-    -- Ищем настоящего убийцу на сервере
     for _, p in ipairs(Players:GetPlayers()) do
         local ls = p:FindFirstChild("leaderstats")
         if ls and ls:FindFirstChild("Role") and ls.Role.Value == "Murderer" and p ~= player then
@@ -519,13 +569,11 @@ local function throwMurdererToSpace()
     if murdererPlayer and murdererPlayer.Character and murdererPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = murdererPlayer.Character.HumanoidRootPart
         
-        -- Создаем эффект полета в космос
         local bodyVel = Instance.new("BodyVelocity")
-        bodyVel.Velocity = Vector3.new(0, 1000, 0) -- Скорость полета вверх
+        bodyVel.Velocity = Vector3.new(0, 1000, 0)
         bodyVel.MaxForce = Vector3.new(0, math.huge, 0)
         bodyVel.Parent = hrp
         
-        -- Добавляем визуальный эффект
         local trail = Instance.new("Part")
         trail.Size = Vector3.new(1, 1, 1)
         trail.Position = hrp.Position
@@ -543,6 +591,7 @@ local function throwMurdererToSpace()
     collected = 0
     counterVal.Text = "0"
     updateBagUI()
+    waitingForNextRound = true -- Ожидаем новый раунд
     isProcessingFullBag = false
 end
 
@@ -561,6 +610,13 @@ player.Idled:Connect(function()
         task.wait(1)
         VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
     end
+end)
+
+-- ВОЗВРАЩЕНА ЛОГИКА СКОРОСТИ
+speedBtn.MouseButton1Click:Connect(function()
+    flySpeed = flySpeed + 5
+    if flySpeed > 50 then flySpeed = 10 end
+    speedPillLbl.Text = tostring(flySpeed)
 end)
 
 RunService.Stepped:Connect(function()
@@ -591,6 +647,7 @@ resetBtn.MouseButton1Click:Connect(function()
     timerVal.Text = "0s"
     rateVal.Text = "0"
     bagFull = false
+    waitingForNextRound = false
     updateBagUI()
 end)
 
@@ -603,6 +660,7 @@ farmBtn.MouseButton1Click:Connect(function()
         startTime = tick()
         visitedPositions = {}
         bagFull = false
+        waitingForNextRound = false
         counterVal.Text = "0"
         updateRoleUI()
         updateBagUI()
@@ -619,7 +677,7 @@ farmBtn.MouseButton1Click:Connect(function()
         
         task.spawn(function()
             while isActive do
-                if isProcessingFullBag then 
+                if isProcessingFullBag or waitingForNextRound then 
                     task.wait(1)
                     continue 
                 end
@@ -659,6 +717,9 @@ farmBtn.MouseButton1Click:Connect(function()
                                 end
                             end
                         end
+                    else
+                        -- Если монет больше нет, сбрасываем visitedPositions
+                        visitedPositions = {}
                     end
                 end
                 task.wait(0.1)
@@ -667,6 +728,6 @@ farmBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-print("✅ [egor745top6] Coin Farm ИСПРАВЛЕН и готов к работе!")
-print("📱 Меню теперь прокручивается!")
-print("🎭 Роль определяется корректно через leaderstats!")
+print("✅ [egor745top6] Coin Farm ФИНАЛЬНАЯ ВЕРСИЯ!")
+print("🎮 Кнопка скорости фарма возвращена!")
+print("🎒 После полного мешка скрипт ждет новый раунд!")
