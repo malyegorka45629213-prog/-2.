@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MM2 Coin Autofarm · [egor745top6] · ESP AUTO + STOP FIX
+--  MM2 Coin Autofarm · [egor745top6] · КНОПКИ ИСПРАВЛЕНЫ
 -- ═══════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -23,7 +23,7 @@ local isMurderer = false
 local isSheriff = false
 local bagFull = false
 local isProcessingFullBag = false
-local farmStopped = false -- НОВОЕ: полная остановка после полного мешка
+local farmStopped = false
 local espEnabled = false
 local espHighlights = {}
 
@@ -219,9 +219,9 @@ do
 end
 
 -- ════════════════════════════════════════════
---  UI КОМПОНЕНТЫ
+--  UI КОМПОНЕНТЫ (ИСПРАВЛЕНО)
 -- ════════════════════════════════════════════
-local function toggleCard(order, label)
+local function toggleCard(order, label, callback)
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, 0, 0, 44)
     card.BackgroundColor3 = COL.card
@@ -271,6 +271,13 @@ local function toggleCard(order, label)
     btn.ZIndex = 3
     btn.Parent = card
 
+    -- ИСПРАВЛЕНО: Обработчик нажатия внутри функции
+    btn.MouseButton1Click:Connect(function()
+        if callback then
+            callback()
+        end
+    end)
+
     local function setState(on)
         if on then
             tw(card, {BackgroundColor3 = ACCENT.dim})
@@ -291,6 +298,7 @@ local function toggleCard(order, label)
 
     btn.MouseEnter:Connect(function() if pl.Text == "OFF" then tw(card, {BackgroundColor3 = COL.cardHov}) end end)
     btn.MouseLeave:Connect(function() if pl.Text == "OFF" then tw(card, {BackgroundColor3 = COL.card}) end end)
+    
     return btn, setState
 end
 
@@ -403,9 +411,124 @@ local function limitButton(order)
     end)
 end
 
-local farmBtn, farmSet = toggleCard(1, "Auto Farm")
-local afkBtn, afkSet = toggleCard(2, "Anti-AFK")
-local espBtn, espSet = toggleCard(3, "ESP Roles")
+-- ════════════════════════════════════════════
+--  КНОПКИ С CALLBACK (ИСПРАВЛЕНО)
+-- ════════════════════════════════════════════
+
+-- Auto Farm
+local farmBtn, farmSet = toggleCard(1, "Auto Farm", function()
+    isActive = not isActive
+    farmSet(isActive)
+    print("🎮 Auto Farm:", isActive and "ON" or "OFF")
+    
+    if isActive then
+        collected = 0
+        startTime = tick()
+        visitedPositions = {}
+        bagFull = false
+        farmStopped = false
+        isProcessingFullBag = false
+        counterVal.Text = "0"
+        updateRoleUI()
+        updateBagUI()
+
+        task.spawn(function()
+            while isActive do
+                local elapsed = tick() - startTime
+                timerVal.Text = math.floor(elapsed) .. "s"
+                local rate = elapsed > 0 and math.floor((collected / elapsed) * 3600) or 0
+                rateVal.Text = tostring(rate)
+                task.wait(0.1)
+            end
+        end)
+
+        task.spawn(function()
+            while isActive do
+                if farmStopped or isProcessingFullBag then
+                    task.wait(1)
+                    continue
+                end
+
+                character = player.Character or player.CharacterAdded:Wait()
+                rootPart = character:FindFirstChild("HumanoidRootPart")
+                if not rootPart then task.wait(0.5) continue end
+
+                checkRole()
+
+                local closest, shortest = nil, math.huge
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("BasePart") and obj.Name == "Coin_Server" then
+                        if obj.Parent and obj:IsDescendantOf(workspace) and not visitedPositions[obj] then
+                            local dist = (obj.Position - rootPart.Position).Magnitude
+                            if dist < shortest and dist < 300 then
+                                closest = obj
+                                shortest = dist
+                            end
+                        end
+                    end
+                end
+
+                if closest then
+                    visitedPositions[closest] = true
+                    local arrived = flyTo(closest.Position, flySpeed)
+
+                    if farmStopped or isProcessingFullBag then continue end
+
+                    if arrived then
+                        task.wait(0.5)
+
+                        if not closest.Parent or not closest:IsDescendantOf(workspace) then
+                            collected = collected + 1
+                            counterVal.Text = tostring(collected)
+                            updateBagUI()
+                            print("🪙", collected, "/", MAX_BAG)
+
+                            if collected >= MAX_BAG and not isProcessingFullBag and not farmStopped then
+                                print("🎒 МЕШОК ПОЛОН!")
+                                bagFull = true
+                                updateBagUI()
+                                checkRole()
+
+                                if isMurderer then
+                                    cinematicMurdererKill()
+                                else
+                                    throwMurdererToSpace()
+                                end
+                            end
+                        end
+                    end
+                else
+                    if next(visitedPositions) then
+                        visitedPositions = {}
+                    end
+                    task.wait(1)
+                end
+
+                task.wait(0.1)
+            end
+        end)
+    end
+end)
+
+-- Anti-AFK
+local afkBtn, afkSet = toggleCard(2, "Anti-AFK", function()
+    antiAFK = not antiAFK
+    afkSet(antiAFK)
+    print("🛡️ Anti-AFK:", antiAFK and "ON" or "OFF")
+end)
+
+-- ESP
+local espBtn, espSet = toggleCard(3, "ESP Roles", function()
+    espEnabled = not espEnabled
+    espSet(espEnabled)
+    if espEnabled then
+        updateESP()
+        print("👁️ ESP включен")
+    else
+        updateESP()
+        print("👁️ ESP выключен")
+    end
+end)
 
 -- Скорость
 local speedCard = Instance.new("Frame")
@@ -458,6 +581,13 @@ speedBtn.Text = ""
 speedBtn.ZIndex = 3
 speedBtn.Parent = speedCard
 
+speedBtn.MouseButton1Click:Connect(function()
+    flySpeed = flySpeed + 5
+    if flySpeed > 50 then flySpeed = 10 end
+    speedPillLbl.Text = tostring(flySpeed)
+    print("⚡ Скорость:", flySpeed)
+end)
+
 sectionLabel(5, "STATS")
 local counterVal = statRow(6, "Coins Collected")
 local timerVal = statRow(7, "Time Active")
@@ -487,6 +617,19 @@ corner(resetBtn, 10)
 stroke(resetBtn, COL.border, 1)
 resetBtn.MouseEnter:Connect(function() tw(resetBtn, {BackgroundColor3 = COL.cardHov}) end)
 resetBtn.MouseLeave:Connect(function() tw(resetBtn, {BackgroundColor3 = COL.card}) end)
+
+resetBtn.MouseButton1Click:Connect(function()
+    collected = 0
+    startTime = tick()
+    counterVal.Text = "0"
+    timerVal.Text = "0s"
+    rateVal.Text = "0"
+    bagFull = false
+    farmStopped = false
+    visitedPositions = {}
+    updateBagUI()
+    print("🔄 Сброс! Фарм возобновлен.")
+end)
 
 local function updateRoleUI()
     checkRole()
@@ -536,7 +679,7 @@ menuButton.MouseButton1Click:Connect(function()
 end)
 
 -- ════════════════════════════════════════════
---  ESP — ПОСТОЯННОЕ АВТООБНОВЛЕНИЕ
+--  ESP
 -- ════════════════════════════════════════════
 
 local function updateESP()
@@ -573,7 +716,6 @@ local function updateESP()
     end
 end
 
--- ПОСТОЯННОЕ ОБНОВЛЕНИЕ ESP КАЖДЫЕ 2 СЕКУНДЫ
 task.spawn(function()
     while true do
         if espEnabled then
@@ -591,8 +733,7 @@ local function stopFarming()
     farmStopped = true
     visitedPositions = {}
     updateBagUI()
-    print("🛑 ФАРМ ОСТАНОВЛЕН — мешок полон!")
-    print("🔄 Нажми 'Reset & Resume' чтобы продолжить")
+    print("🛑 ФАРМ ОСТАНОВЛЕН!")
 end
 
 local function cinematicMurdererKill()
@@ -630,13 +771,12 @@ local function throwMurdererToSpace()
     if isProcessingFullBag then return end
     isProcessingFullBag = true
 
-    print("🚀 Ищем мардера для запуска в космос...")
+    print("🚀 Ищем мардера...")
 
     local murdererPlayer = nil
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player then
             local role = getPlayerRole(p)
-            print("   🔍", p.Name, "=", role)
             if role == "Murderer" then
                 murdererPlayer = p
                 break
@@ -668,7 +808,7 @@ local function throwMurdererToSpace()
         Debris:AddItem(bodyVel, 5)
         print("🚀", murdererPlayer.Name, "отправлен в космос!")
     else
-        print("⚠️ Мардер не найден! Возможно роль определяется иначе.")
+        print("⚠️ Мардер не найден!")
     end
 
     bagFull = false
@@ -682,35 +822,12 @@ end
 --  ОСНОВНАЯ ЛОГИКА
 -- ════════════════════════════════════════════
 
-afkBtn.MouseButton1Click:Connect(function()
-    antiAFK = not antiAFK
-    afkSet(antiAFK)
-end)
-
-espBtn.MouseButton1Click:Connect(function()
-    espEnabled = not espEnabled
-    espSet(espEnabled)
-    if espEnabled then
-        updateESP()
-        print("👁️ ESP включен (автообновление каждые 2 сек)")
-    else
-        updateESP()
-        print("👁️ ESP выключен")
-    end
-end)
-
 player.Idled:Connect(function()
     if antiAFK then
         VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
         task.wait(1)
         VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
     end
-end)
-
-speedBtn.MouseButton1Click:Connect(function()
-    flySpeed = flySpeed + 5
-    if flySpeed > 50 then flySpeed = 10 end
-    speedPillLbl.Text = tostring(flySpeed)
 end)
 
 RunService.Stepped:Connect(function()
@@ -743,123 +860,7 @@ local function flyTo(pos, speed)
     return not cancelled
 end
 
-resetBtn.MouseButton1Click:Connect(function()
-    collected = 0
-    startTime = tick()
-    counterVal.Text = "0"
-    timerVal.Text = "0s"
-    rateVal.Text = "0"
-    bagFull = false
-    farmStopped = false
-    visitedPositions = {}
-    updateBagUI()
-    print("🔄 Сброс! Фарм возобновлен.")
-end)
-
-farmBtn.MouseButton1Click:Connect(function()
-    isActive = not isActive
-    farmSet(isActive)
-
-    if isActive then
-        collected = 0
-        startTime = tick()
-        visitedPositions = {}
-        bagFull = false
-        farmStopped = false
-        isProcessingFullBag = false
-        counterVal.Text = "0"
-        updateRoleUI()
-        updateBagUI()
-
-        task.spawn(function()
-            while isActive do
-                local elapsed = tick() - startTime
-                timerVal.Text = math.floor(elapsed) .. "s"
-                local rate = elapsed > 0 and math.floor((collected / elapsed) * 3600) or 0
-                rateVal.Text = tostring(rate)
-                task.wait(0.1)
-            end
-        end)
-
-        task.spawn(function()
-            while isActive do
-                -- ПОЛНАЯ ОСТАНОВКА если мешок полон
-                if farmStopped or isProcessingFullBag then
-                    task.wait(1)
-                    continue
-                end
-
-                character = player.Character or player.CharacterAdded:Wait()
-                rootPart = character:FindFirstChild("HumanoidRootPart")
-                if not rootPart then task.wait(0.5) continue end
-
-                checkRole()
-
-                local closest, shortest = nil, math.huge
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj:IsA("BasePart") and obj.Name == "Coin_Server" then
-                        if obj.Parent and obj:IsDescendantOf(workspace) and not visitedPositions[obj] then
-                            local dist = (obj.Position - rootPart.Position).Magnitude
-                            if dist < shortest and dist < 300 then
-                                closest = obj
-                                shortest = dist
-                            end
-                        end
-                    end
-                end
-
-                if closest then
-                    -- Помечаем ДО полета чтобы не летать повторно
-                    visitedPositions[closest] = true
-
-                    local arrived = flyTo(closest.Position, flySpeed)
-
-                    -- ПРОВЕРКА: остановка во время полета
-                    if farmStopped or isProcessingFullBag then continue end
-
-                    if arrived then
-                        -- Ждем и проверяем собралась ли монета
-                        task.wait(0.5)
-
-                        if not closest.Parent or not closest:IsDescendantOf(workspace) then
-                            -- Монета исчезла = собрана
-                            collected = collected + 1
-                            counterVal.Text = tostring(collected)
-                            updateBagUI()
-                            print("🪙", collected, "/", MAX_BAG)
-
-                            if collected >= MAX_BAG and not isProcessingFullBag and not farmStopped then
-                                print("🎒 МЕШОК ПОЛОН!")
-                                bagFull = true
-                                updateBagUI()
-                                checkRole()
-
-                                if isMurderer then
-                                    cinematicMurdererKill()
-                                else
-                                    throwMurdererToSpace()
-                                end
-                            end
-                        else
-                            -- Монета на месте = не наша, пропускаем
-                            print("⚠️ Монета не собралась (чужая), пропуск")
-                        end
-                    end
-                else
-                    -- Нет монет — сброс и ожидание
-                    if next(visitedPositions) then
-                        visitedPositions = {}
-                    end
-                    task.wait(1)
-                end
-
-                task.wait(0.1)
-            end
-        end)
-    end
-end)
-
 print("✅ [egor745top6] Coin Farm ГОТОВ!")
+print("🎮 Кнопки теперь работают корректно!")
 print("👁️ ESP автообновляется каждые 2 сек")
 print("🛑 После полного мешка фарм ОСТАНАВЛИВАЕТСЯ")
-print("🔄 Нажми 'Reset & Resume' для продолжения")
