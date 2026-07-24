@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
---  MM2 Coin Autofarm · [egor745top6] · КИНЕМАТОГРАФИЧНЫЕ ЭФФЕКТЫ
+--  MM2 Coin Autofarm · [egor745top6] · ФИНАЛЬНАЯ ВЕРСИЯ
 -- ═══════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -382,29 +382,29 @@ function updateBagUI()
     end
 end
 
--- 🔥 КИНЕМАТОГРАФИЧНЫЕ ЭФФЕКТЫ
+-- ОСТАНОВКА ФАРМА
 function stopFarming()
     farmStopped = true
     updateBagUI()
     print("🛑 ФАРМ ОСТАНОВЛЕН!")
 end
 
--- 🔥 УБИЙЦА УБИВАЕТ ВСЕХ (КИНЕМАТОГРАФИЧНО)
+-- 🔪 УБИЙЦА УБИВАЕТ ВСЕХ (БЫСТРО)
 function cinematicMurdererKill()
-    print("🔪 КИНЕМАТОГРАФИЧНОЕ УБИЙСТВО!")
+    print("🔪 Убийца убивает всех!")
     killSound:Play()
     
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
     
-    -- 🔥 Создаём визуальный нож
+    -- 🔥 Создаём нож
     local knife = Instance.new("Tool")
     knife.Name = "MurdererKnife"
     knife.TextureId = "rbxassetid://189130411"
     knife.GripPos = Vector3.new(0, -0.5, 0)
     knife.Parent = character
     
-    -- 🔥 Красная вспышка вокруг
+    -- 🔥 Красная вспышка
     local flash = Instance.new("Part")
     flash.Size = Vector3.new(30, 30, 30)
     flash.Position = hrp.Position
@@ -422,18 +422,17 @@ function cinematicMurdererKill()
     light.Color = Color3.fromRGB(255, 0, 0)
     light.Parent = flash
     
-    task.wait(0.5)
+    task.wait(0.3)
     
-    -- 🔥 Быстрая телепортация к каждому игроку
+    -- 🔥 Быстрая телепортация к каждому
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
             local targetHrp = p.Character:FindFirstChild("HumanoidRootPart")
             if targetHrp then
-                -- Телепорт за спину
                 hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
-                task.wait(0.1)
+                task.wait(0.08)
                 
-                -- Визуальный эффект удара
+                -- Эффект удара
                 local hitEffect = Instance.new("Part")
                 hitEffect.Size = Vector3.new(2, 2, 2)
                 hitEffect.Position = targetHrp.Position
@@ -445,19 +444,14 @@ function cinematicMurdererKill()
                 hitEffect.Parent = workspace
                 Debris:AddItem(hitEffect, 0.5)
                 
-                -- Убийство
                 p.Character.Humanoid.Health = 0
                 print("💀 Убит:", p.Name)
             end
         end
     end
     
-    task.wait(0.5)
-    
-    -- 🔥 Возврат на исходную позицию
+    task.wait(0.3)
     hrp.CFrame = CFrame.new(hrp.Position)
-    
-    -- 🔥 Удаляем нож
     knife:Destroy()
     
     bagFull = false
@@ -465,9 +459,9 @@ function cinematicMurdererKill()
     counterVal.Text = "0"
 end
 
--- 🔥 ВЫБРОС МАРДЕРА В КОСМОС (КИНЕМАТОГРАФИЧНО)
+-- 🚀 ВЫБРОС МАРДЕРА В КОСМОС (КАК В ЧИТАХ - МГНОВЕННО)
 function throwMurdererToSpace()
-    print("🚀 КИНЕМАТОГРАФИЧНЫЙ ВЫБРОС МАРДЕРА!")
+    print("🚀 Выброс мардера в космос!")
     deathSound:Play()
     
     local murdererPlayer = nil
@@ -482,39 +476,71 @@ function throwMurdererToSpace()
     end
     
     if murdererPlayer and murdererPlayer.Character and murdererPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local myHrp = character:FindFirstChild("HumanoidRootPart")
         local murdererHrp = murdererPlayer.Character.HumanoidRootPart
+        local murdererHum = murdererPlayer.Character:FindFirstChild("Humanoid")
         
-        if not myHrp then return end
+        -- 🔥 МГНОВЕННЫЙ ВЫБРОС (как в читах)
         
-        -- 🔥 Телепортируемся к мардеру
-        myHrp.CFrame = murdererHrp.CFrame * CFrame.new(0, 0, 5)
-        task.wait(0.3)
+        -- 1. Отключаем управление мардеру
+        if murdererHum then
+            murdererHum.PlatformStand = true
+        end
         
-        -- 🔥 Начинаем быстро крутиться вокруг мардера
-        local spinCount = 0
-        local spinThread = task.spawn(function()
-            while spinCount < 20 do
-                local angle = math.rad(spinCount * 36)
-                local radius = 5
-                local offset = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
-                myHrp.CFrame = CFrame.new(murdererHrp.Position + offset, murdererHrp.Position)
-                spinCount = spinCount + 1
-                task.wait(0.05)
+        -- 2. Мгновенно телепортируем мардера высоко в небо
+        local spacePosition = murdererHrp.Position + Vector3.new(0, 5000, 0)
+        murdererHrp.CFrame = CFrame.new(spacePosition)
+        
+        -- 3. Добавляем BodyVelocity чтобы он продолжал лететь
+        local bodyVel = Instance.new("BodyVelocity")
+        bodyVel.Velocity = Vector3.new(0, 10000, 0)
+        bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyVel.Parent = murdererHrp
+        Debris:AddItem(bodyVel, 10)
+        
+        -- 4. Добавляем BodyAngularVelocity для вращения
+        local bodyAng = Instance.new("BodyAngularVelocity")
+        bodyAng.AngularVelocity = Vector3.new(50, 50, 50)
+        bodyAng.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bodyAng.Parent = murdererHrp
+        Debris:AddItem(bodyAng, 10)
+        
+        -- 5. Отключаем коллизии
+        for _, part in ipairs(murdererPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+        
+        -- 6. Визуальный эффект (фиолетовый след)
+        task.spawn(function()
+            for i = 1, 30 do
+                task.wait(0.1)
+                if murdererHrp.Parent then
+                    local trail = Instance.new("Part")
+                    trail.Size = Vector3.new(2, 2, 2)
+                    trail.Position = murdererHrp.Position
+                    trail.Anchored = true
+                    trail.CanCollide = false
+                    trail.Material = Enum.Material.Neon
+                    trail.Color = Color3.fromRGB(155, 60, 255)
+                    trail.Transparency = 0.3
+                    trail.Parent = workspace
+                    Debris:AddItem(trail, 1.5)
+                end
             end
         end)
         
-        -- 🔥 Создаём фиолетовую вспышку
+        -- 7. Фиолетовая вспышка на месте
         local flash = Instance.new("Part")
-        flash.Size = Vector3.new(20, 20, 20)
-        flash.Position = murdererHrp.Position
+        flash.Size = Vector3.new(15, 15, 15)
+        flash.Position = murdererHrp.Position - Vector3.new(0, 5000, 0)
         flash.Anchored = true
         flash.CanCollide = false
         flash.Material = Enum.Material.Neon
         flash.Color = Color3.fromRGB(155, 60, 255)
         flash.Transparency = 0.5
         flash.Parent = workspace
-        Debris:AddItem(flash, 3)
+        Debris:AddItem(flash, 2)
         
         local light = Instance.new("PointLight")
         light.Brightness = 15
@@ -522,30 +548,6 @@ function throwMurdererToSpace()
         light.Color = Color3.fromRGB(155, 60, 255)
         light.Parent = flash
         
-        task.wait(1)
-        
-        -- 🔥 Запускаем мардера в космос
-        local bodyVel = Instance.new("BodyVelocity")
-        bodyVel.Velocity = Vector3.new(0, 3000, 0)
-        bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bodyVel.Parent = murdererHrp
-        
-        -- 🔥 Визуальный эффект полёта
-        for i = 1, 30 do
-            task.wait(0.1)
-            local trail = Instance.new("Part")
-            trail.Size = Vector3.new(2, 2, 2)
-            trail.Position = murdererHrp.Position + Vector3.new(math.random(-3, 3), math.random(-3, 3), math.random(-3, 3))
-            trail.Anchored = true
-            trail.CanCollide = false
-            trail.Material = Enum.Material.Neon
-            trail.Color = Color3.fromRGB(155, 60, 255)
-            trail.Transparency = 0.3
-            trail.Parent = workspace
-            Debris:AddItem(trail, 1)
-        end
-        
-        Debris:AddItem(bodyVel, 5)
         print("🚀", murdererPlayer.Name, "улетел в космос!")
     else
         print("⚠️ Мардер не найден!")
@@ -927,5 +929,5 @@ updateRoleUI()
 updateBagUI()
 
 print("✅ [egor745top6] Coin Farm ГОТОВ!")
-print("🔪 Кинематографичное убийство для Murderer!")
-print("🚀 Кинематографичный выброс мардера для Innocent!")
+print("🚀 Мардер вылетает МГНОВЕННО как в читах!")
+print("🔪 Убийца быстро убивает всех!")
